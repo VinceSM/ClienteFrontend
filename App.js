@@ -1,15 +1,14 @@
-import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import React from 'react';
 import { AuthProvider } from './src/hooks/useAuth';
+import { CartProvider } from './src/context/CartContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <StatusBar style="auto" />
+      <CartProvider>
         <AppNavigator />
-      </NavigationContainer>
+      </CartProvider>
     </AuthProvider>
   );
 }

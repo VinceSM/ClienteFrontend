@@ -36,76 +36,153 @@ export default function RegisterScreen({ navigation }) {
     }));
   };
 
-  const validateForm = () => {
-    // Validaciones básicas
-    if (!form.nombreCompleto || !form.dni || !form.nacimiento || 
-        !form.celular || !form.ciudad || !form.calle || !form.numero ||
-        !form.email || !form.password || !form.confirmPassword) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
-      return false;
-    }
+const validateForm = () => {
+  // Validar campos obligatorios
+  const requiredFields = [
+    'nombreCompleto', 'dni', 'nacimiento', 'celular', 
+    'ciudad', 'calle', 'numero', 'email', 'password', 'confirmPassword'
+  ];
+  
+  const emptyFields = requiredFields.filter(field => !form[field]?.trim());
+  if (emptyFields.length > 0) {
+    Alert.alert('Error', 'Por favor completa todos los campos');
+    return false;
+  }
 
-    if (form.password !== form.confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
-      return false;
-    }
+  // Validar DNI (8 dígitos exactos)
+  if (!/^\d{8}$/.test(form.dni)) {
+    Alert.alert('Error', 'El DNI debe tener exactamente 8 dígitos');
+    return false;
+  }
 
-    if (form.password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
-      return false;
-    }
+  // Validar fecha de nacimiento (formato YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(form.nacimiento)) {
+    Alert.alert('Error', 'La fecha debe estar en formato YYYY-MM-DD (ej: 2003-12-09)');
+    return false;
+  }
 
-    // Validar email básico
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(form.email)) {
-      Alert.alert('Error', 'Por favor ingresa un email válido');
-      return false;
-    }
+  // Validar que la fecha sea válida
+  const birthDate = new Date(form.nacimiento);
+  if (isNaN(birthDate.getTime())) {
+    Alert.alert('Error', 'La fecha de nacimiento no es válida');
+    return false;
+  }
 
-    return true;
-  };
+  // Validar que no sea fecha futura
+  const today = new Date();
+  if (birthDate > today) {
+    Alert.alert('Error', 'La fecha de nacimiento no puede ser futura');
+    return false;
+  }
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
+  // Validar que sea mayor de 18 años - CORREGIDO
+  let age = today.getFullYear() - birthDate.getFullYear(); // Cambiado a 'let'
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  if (age < 18) {
+    Alert.alert('Error', 'Debes ser mayor de 18 años para registrarte');
+    return false;
+  }
 
-    setIsLoading(true);
+  // Validar celular (solo números, mínimo 9 dígitos)
+  const phoneClean = form.celular.replace(/\D/g, '');
+  if (phoneClean.length < 9) {
+    Alert.alert('Error', 'El celular debe tener al menos 9 dígitos');
+    return false;
+  }
+
+  // Validar número de dirección
+  if (!/^\d+$/.test(form.numero)) {
+    Alert.alert('Error', 'El número de dirección debe ser un valor numérico');
+    return false;
+  }
+
+  if (form.password !== form.confirmPassword) {
+    Alert.alert('Error', 'Las contraseñas no coinciden');
+    return false;
+  }
+
+  if (form.password.length < 6) {
+    Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+    return false;
+  }
+
+  // Validar email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(form.email)) {
+    Alert.alert('Error', 'Por favor ingresa un email válido');
+    return false;
+  }
+
+  return true;
+};
+
+const handleSubmit = async () => {
+  if (!validateForm()) return;
+
+  setIsLoading(true);
+  
+  try {
+    // Convertir el string de fecha a objeto Date y luego al formato que .NET espera
+    const birthDate = new Date(form.nacimiento);
     
-    try {
-      // Preparar datos para enviar al backend
-      const userData = {
-        nombreCompleto: form.nombreCompleto,
-        dni: form.dni,
-        nacimiento: form.nacimiento,
-        celular: form.celular,
-        ciudad: form.ciudad,
-        calle: form.calle,
-        numero: parseInt(form.numero),
-        email: form.email,
-        password: form.password,
-      };
+    // Preparar datos para enviar al backend EXACTAMENTE como espera el ClienteRequest
+    const userData = {
+      NombreCompleto: form.nombreCompleto.trim(),
+      Dni: form.dni.trim(),
+      Nacimiento: form.nacimiento, // Esto se enviará como string "2003-12-09"
+      Celular: form.celular.trim(),
+      Ciudad: form.ciudad.trim(),
+      Calle: form.calle.trim(),
+      Numero: parseInt(form.numero),
+      Email: form.email.trim().toLowerCase(),
+      Password: form.password,
+    };
 
-      const result = await register(userData);
+    console.log('Enviando datos al backend:', userData);
+    
+    const result = await register(userData);
+    
+    if (result.success) {
+      Alert.alert(
+        'Éxito', 
+        '✅ Registro exitoso. Por favor inicia sesión.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('Login')
+          }
+        ]
+      );
       
-      if (result.success) {
-        Alert.alert(
-          'Éxito', 
-          '✅ Registro exitoso. Por favor inicia sesión.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login')
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Error', `❌ ${result.error}`);
-      }
-    } catch (error) {
-      Alert.alert('Error', `❌ Error: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+      // Limpiar formulario
+      setForm({
+        nombreCompleto: '',
+        dni: '',
+        nacimiento: '',
+        celular: '',
+        ciudad: '',
+        calle: '',
+        numero: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+      });
+    } else {
+      Alert.alert('Error', result.error || '❌ Error en el registro');
     }
-  };
+  } catch (error) {
+    console.error('Submit error:', error);
+    Alert.alert('Error', '❌ Error inesperado: ' + error.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView 
