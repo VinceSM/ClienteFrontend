@@ -26,21 +26,26 @@ class ComercioService {
     }
   }
 
-  async getComercioById(id) {
-    try {
-      const response = await fetch(`${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/${id}`);
-      
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching comercio:', error);
-      throw error;
+async getComercioById(id) {
+  try {
+    console.log('🔵 Fetching comercio by ID:', `${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/${id}`);
+    
+    const response = await fetch(`${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/${id}`);
+    
+    console.log('🟡 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+    
+    const data = await response.json();
+    console.log('✅ Comercio data:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error fetching comercio:', error);
+    throw error;
   }
+}
 
   async getComerciosDestacados() {
     try {
@@ -74,21 +79,48 @@ class ComercioService {
     }
   }
 
-  async getProductosByComercio(comercioId) {
-    try {
-      const response = await fetch(`${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/${comercioId}/productos`);
-      
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching productos del comercio:', error);
-      throw error;
+async getProductosByComercio(comercioId) {
+  try {
+    console.log('🔵 Fetching productos for comercio:', `${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/${comercioId}/productos`);
+    
+    const response = await fetch(`${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/${comercioId}/productos`);
+    
+    console.log('🟡 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+    
+    const data = await response.json();
+    console.log('✅ Productos data:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error fetching productos:', error);
+    throw error;
   }
+}
+
+async getComercioPanelDetalle(id) {
+  try {
+    console.log('🔵 Fetching comercio panel detalle:', `${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/panel/${id}`);
+    
+    const response = await fetch(`${this.baseURL}${API_CONFIG.ENDPOINTS.COMERCIOS.BASE}/panel/${id}`);
+    
+    console.log('🟡 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('✅ Comercio panel data:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error fetching comercio panel:', error);
+    throw error;
+  }
+}
+
 }
 
 export default new ComercioService();
