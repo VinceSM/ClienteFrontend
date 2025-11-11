@@ -1,3 +1,4 @@
+// C:\Users\ASUS\DeliveryYa\ClienteFronted\src\navigation\MainNavigator.jsx
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -13,9 +14,80 @@ import MenuScreen from '../screens/MenuScreen';
 import CartScreen from '../screens/CartScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 
+// Importar los nuevos componentes
+import MisPedidos from '../components/Perfil/MisPedidos';
+import MetodosPago from '../components/Perfil/MetodosPago';
+import Notificaciones from '../components/Perfil/Notificaciones';
+import Ayuda from '../components/Perfil/Ayuda';
+
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// Stack Navigator para el perfil y sus secciones
+function ProfileStackNavigator() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="ProfileMain" 
+        component={ProfileScreen}
+        options={{ 
+          title: 'Mi Perfil',
+          headerShown: true,
+          headerTintColor: '#FF4D4D',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="MisPedidos" 
+        component={MisPedidos}
+        options={{ 
+          title: 'Mis Pedidos',
+          headerTintColor: '#FF4D4D',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="MetodosPago" 
+        component={MetodosPago}
+        options={{ 
+          title: 'Métodos de Pago',
+          headerTintColor: '#FF4D4D',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="Notificaciones" 
+        component={Notificaciones}
+        options={{ 
+          title: 'Notificaciones',
+          headerTintColor: '#FF4D4D',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="Ayuda" 
+        component={Ayuda}
+        options={{ 
+          title: 'Centro de Ayuda',
+          headerTintColor: '#FF4D4D',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+// Tab Navigator actualizado para usar el ProfileStack
 function HomeTabNavigator() {
   return (
     <Tab.Navigator
@@ -64,7 +136,7 @@ function HomeTabNavigator() {
       />
       <Tab.Screen 
         name="Profile" 
-        component={ProfileScreen}
+        component={ProfileStackNavigator}
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color, size }) => (
