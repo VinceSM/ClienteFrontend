@@ -1,19 +1,25 @@
 // C:\Users\ASUS\DeliveryYa\ClienteFronted\src\services\perfilService.js
 import API_CONFIG from '../config/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class PerfilService {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
   }
 
-  // Método auxiliar para obtener el token
-  getAuthToken() {
-    return localStorage.getItem('authToken');
+  // Método auxiliar para obtener el token - ACTUALIZADO para AsyncStorage
+  async getAuthToken() {
+    try {
+      return await AsyncStorage.getItem('authToken');
+    } catch (error) {
+      console.error('Error obteniendo token:', error);
+      return null;
+    }
   }
 
-  // Método auxiliar para headers comunes
-  getHeaders() {
-    const token = this.getAuthToken();
+  // Método auxiliar para headers comunes - ACTUALIZADO para AsyncStorage
+  async getHeaders() {
+    const token = await this.getAuthToken();
     const headers = {
       'Content-Type': 'application/json',
     };
@@ -28,12 +34,14 @@ class PerfilService {
   async getClienteById(id) {
     try {
       const url = `${this.baseURL}${API_CONFIG.ENDPOINTS.CLIENTES}/${id}`;
+      const headers = await this.getHeaders();
+      
       console.log('🔵 Fetching cliente from:', url);
-      console.log('🔑 Token disponible:', !!this.getAuthToken());
+      console.log('🔑 Token disponible:', !!(await this.getAuthToken()));
       
       const response = await fetch(url, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: headers,
       });
       
       console.log('🟡 Response status:', response.status);
@@ -69,13 +77,15 @@ class PerfilService {
   async updateCliente(id, datosCliente) {
     try {
       const url = `${this.baseURL}${API_CONFIG.ENDPOINTS.CLIENTES}/${id}`;
+      const headers = await this.getHeaders();
+      
       console.log('🔵 Updating cliente:', url);
       console.log('📦 Data to update:', datosCliente);
-      console.log('🔑 Token disponible:', !!this.getAuthToken());
+      console.log('🔑 Token disponible:', !!(await this.getAuthToken()));
       
       const response = await fetch(url, {
         method: 'PUT',
-        headers: this.getHeaders(),
+        headers: headers,
         body: JSON.stringify(datosCliente),
       });
       
@@ -112,13 +122,15 @@ class PerfilService {
       };
       
       const url = `${this.baseURL}${API_CONFIG.ENDPOINTS.CLIENTES}/${id}`;
+      const headers = await this.getHeaders();
+      
       console.log('🔵 Updating dirección:', url);
       console.log('📦 Dirección data:', datosActualizados);
-      console.log('🔑 Token disponible:', !!this.getAuthToken());
+      console.log('🔑 Token disponible:', !!(await this.getAuthToken()));
       
       const response = await fetch(url, {
         method: 'PUT',
-        headers: this.getHeaders(),
+        headers: headers,
         body: JSON.stringify(datosActualizados),
       });
       
@@ -152,26 +164,6 @@ class PerfilService {
       // Podemos implementarlo después en el backend
       console.warn('⚠️ Endpoint de pedidos no implementado aún');
       return []; // Retornar array vacío por ahora
-      
-      /* Código comentado para cuando implementemos el endpoint:
-      const url = `${this.baseURL}/api/Clientes/${clienteId}/pedidos`;
-      console.log('🔵 Fetching pedidos for cliente:', url);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-      
-      console.log('🟡 Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ Pedidos data:', data);
-      return data;
-      */
     } catch (error) {
       console.error('❌ Error fetching pedidos:', error);
       return []; // Retornar array vacío en caso de error
@@ -182,12 +174,14 @@ class PerfilService {
   async getAllClientes() {
     try {
       const url = `${this.baseURL}${API_CONFIG.ENDPOINTS.CLIENTES}`;
+      const headers = await this.getHeaders();
+      
       console.log('🔵 Fetching todos los clientes:', url);
-      console.log('🔑 Token disponible:', !!this.getAuthToken());
+      console.log('🔑 Token disponible:', !!(await this.getAuthToken()));
       
       const response = await fetch(url, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: headers,
       });
       
       console.log('🟡 Response status:', response.status);

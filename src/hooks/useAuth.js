@@ -1,5 +1,6 @@
 // C:\Users\ASUS\DeliveryYa\ClienteFronted\src\hooks\useAuth.js
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_CONFIG from '../config/config';
 import PerfilService from '../services/perfilService';
 
@@ -17,8 +18,9 @@ export function AuthProvider({ children }) {
 
   const checkAuthStatus = async () => {
     try {
-      const storedToken = localStorage.getItem('authToken');
-      const storedUser = localStorage.getItem('userData');
+      // REEMPLAZADO: AsyncStorage en lugar de localStorage
+      const storedToken = await AsyncStorage.getItem('authToken');
+      const storedUser = await AsyncStorage.getItem('userData');
       
       if (storedToken && storedUser) {
         setToken(storedToken);
@@ -33,7 +35,7 @@ export function AuthProvider({ children }) {
             const clienteId = userData.idcliente || userData.id;
             const clienteActual = await PerfilService.getClienteById(clienteId);
             setUser(clienteActual);
-            localStorage.setItem('userData', JSON.stringify(clienteActual));
+            await AsyncStorage.setItem('userData', JSON.stringify(clienteActual));
           } catch (error) {
             console.error('❌ Error cargando datos frescos:', error);
           }
@@ -91,8 +93,8 @@ export function AuthProvider({ children }) {
       }
 
       if (data.token) {
-        // Guardar token y datos
-        localStorage.setItem('authToken', data.token);
+        // REEMPLAZADO: Guardar token con AsyncStorage
+        await AsyncStorage.setItem('authToken', data.token);
         setToken(data.token);
         
         // Obtener perfil completo
@@ -111,7 +113,8 @@ export function AuthProvider({ children }) {
           
           if (clienteCompleto) {
             setUser(clienteCompleto);
-            localStorage.setItem('userData', JSON.stringify(clienteCompleto));
+            // REEMPLAZADO: Guardar usuario con AsyncStorage
+            await AsyncStorage.setItem('userData', JSON.stringify(clienteCompleto));
             console.log('✅ Login exitoso:', clienteCompleto);
             return { success: true, user: clienteCompleto, token: data.token };
           }
@@ -122,7 +125,8 @@ export function AuthProvider({ children }) {
         // Fallback a datos básicos
         const userBasico = data.user || { email, nombreCompleto: data.nombreCompleto || 'Usuario' };
         setUser(userBasico);
-        localStorage.setItem('userData', JSON.stringify(userBasico));
+        // REEMPLAZADO: Guardar usuario con AsyncStorage
+        await AsyncStorage.setItem('userData', JSON.stringify(userBasico));
         return { success: true, user: userBasico, token: data.token };
         
       } else {
@@ -164,7 +168,8 @@ export function AuthProvider({ children }) {
         console.log('✅ Registro exitoso:', data);
         
         if (data.token) {
-          localStorage.setItem('authToken', data.token);
+          // REEMPLAZADO: Guardar token con AsyncStorage
+          await AsyncStorage.setItem('authToken', data.token);
           setToken(data.token);
           
           // Intentar obtener perfil completo
@@ -173,17 +178,20 @@ export function AuthProvider({ children }) {
             const clienteCompleto = await PerfilService.buscarClientePorEmail(userEmail);
             if (clienteCompleto) {
               setUser(clienteCompleto);
-              localStorage.setItem('userData', JSON.stringify(clienteCompleto));
+              // REEMPLAZADO: Guardar usuario con AsyncStorage
+              await AsyncStorage.setItem('userData', JSON.stringify(clienteCompleto));
             } else {
               const userBasico = { email: userEmail, nombreCompleto: userData.nombreCompleto };
               setUser(userBasico);
-              localStorage.setItem('userData', JSON.stringify(userBasico));
+              // REEMPLAZADO: Guardar usuario con AsyncStorage
+              await AsyncStorage.setItem('userData', JSON.stringify(userBasico));
             }
           } catch (error) {
             console.error('Error obteniendo perfil completo:', error);
             const userBasico = { email: userData.email, nombreCompleto: userData.nombreCompleto };
             setUser(userBasico);
-            localStorage.setItem('userData', JSON.stringify(userBasico));
+            // REEMPLAZADO: Guardar usuario con AsyncStorage
+            await AsyncStorage.setItem('userData', JSON.stringify(userBasico));
           }
         }
         
@@ -201,15 +209,15 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // 🔥 LOGOUT SIMPLIFICADO - igual que en comercio
-  const logout = () => {
-    return new Promise((resolve) => {
+  // 🔥 LOGOUT ACTUALIZADO con AsyncStorage
+  const logout = async () => {
+    return new Promise(async (resolve) => {
       try {
         console.log('🚪 Ejecutando logout...');
         
-        // Limpiar todo
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userData');
+        // REEMPLAZADO: Limpiar con AsyncStorage
+        await AsyncStorage.removeItem('authToken');
+        await AsyncStorage.removeItem('userData');
         setUser(null);
         setToken(null);
         setError(null);
@@ -234,7 +242,7 @@ export function AuthProvider({ children }) {
     setError(null);
   };
 
-  // 🔄 FUNCIONES PARA MANEJAR EL PERFIL (AGREGAR ESTAS)
+  // 🔄 FUNCIONES PARA MANEJAR EL PERFIL (ACTUALIZADAS con AsyncStorage)
   const actualizarPerfil = async (datosActualizados) => {
     try {
       if (!user?.id) {
@@ -246,7 +254,8 @@ export function AuthProvider({ children }) {
       const nuevoUser = { ...user, ...perfilActualizado };
       
       setUser(nuevoUser);
-      localStorage.setItem('userData', JSON.stringify(nuevoUser));
+      // REEMPLAZADO: Guardar con AsyncStorage
+      await AsyncStorage.setItem('userData', JSON.stringify(nuevoUser));
       console.log('✅ Perfil actualizado:', nuevoUser);
       
       return perfilActualizado;
@@ -272,7 +281,8 @@ export function AuthProvider({ children }) {
       };
       
       setUser(nuevoUser);
-      localStorage.setItem('userData', JSON.stringify(nuevoUser));
+      // REEMPLAZADO: Guardar con AsyncStorage
+      await AsyncStorage.setItem('userData', JSON.stringify(nuevoUser));
       console.log('✅ Dirección actualizada:', nuevoUser);
       
       return resultado;
@@ -287,7 +297,8 @@ export function AuthProvider({ children }) {
       console.log('🔄 Cargando datos del cliente...');
       const clienteData = await PerfilService.getClienteById(clienteId);
       setUser(clienteData);
-      localStorage.setItem('userData', JSON.stringify(clienteData));
+      // REEMPLAZADO: Guardar con AsyncStorage
+      await AsyncStorage.setItem('userData', JSON.stringify(clienteData));
       console.log('✅ Datos del cliente cargados:', clienteData);
       return clienteData;
     } catch (error) {
@@ -306,7 +317,8 @@ export function AuthProvider({ children }) {
         const clientePorEmail = await PerfilService.buscarClientePorEmail(user.email);
         if (clientePorEmail) {
           setUser(clientePorEmail);
-          localStorage.setItem('userData', JSON.stringify(clientePorEmail));
+          // REEMPLAZADO: Guardar con AsyncStorage
+          await AsyncStorage.setItem('userData', JSON.stringify(clientePorEmail));
           console.log('✅ Perfil recargado por email:', clientePorEmail);
           return clientePorEmail;
         } else {

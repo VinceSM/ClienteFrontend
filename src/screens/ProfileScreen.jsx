@@ -57,23 +57,41 @@ export default function ProfileScreen() {
     try {
       console.log("🔐 Cerrando sesión...");
       
-      // Mostrar confirmación (igual que en comercio)
-      const confirmLogout = window.confirm("¿Estás seguro de que quieres cerrar sesión?");
-      if (!confirmLogout) return;
+      // CORREGIDO: Usar Alert de React Native en lugar de window.confirm
+      Alert.alert(
+        "Cerrar Sesión",
+        "¿Estás seguro de que quieres cerrar sesión?",
+        [
+          {
+            text: "Cancelar",
+            style: "cancel"
+          },
+          {
+            text: "Sí, Cerrar Sesión",
+            onPress: async () => {
+              try {
+                const success = await logout();
+                
+                if (success) {
+                  console.log("✅ Sesión cerrada exitosamente");
+                  // El AppNavigator debería redirigir automáticamente
+                } else {
+                  console.error("❌ Error al cerrar sesión");
+                  Alert.alert("Error", "Error al cerrar sesión");
+                }
+              } catch (error) {
+                console.error("💥 Error en logout:", error);
+                Alert.alert("Error", "Error al cerrar sesión: " + error.message);
+              }
+            },
+            style: "destructive"
+          }
+        ]
+      );
       
-      // Ejecutar logout
-      const success = await logout();
-      
-      if (success) {
-        console.log("✅ Sesión cerrada exitosamente");
-        // El AppNavigator debería redirigir automáticamente
-      } else {
-        console.error("❌ Error al cerrar sesión");
-        alert("Error al cerrar sesión");
-      }
     } catch (error) {
       console.error("💥 Error en logout:", error);
-      alert("Error al cerrar sesión: " + error.message);
+      Alert.alert("Error", "Error al cerrar sesión: " + error.message);
     }
   };
 
@@ -119,6 +137,20 @@ export default function ProfileScreen() {
 
   const navegarAAyuda = () => {
     navigation.navigate('Ayuda');
+  };
+
+  // Función para recargar perfil manualmente
+  const handleRecargarPerfil = async () => {
+    try {
+      setProfileLoading(true);
+      await recargarPerfil();
+      Alert.alert('Éxito', 'Perfil actualizado');
+    } catch (error) {
+      console.error('Error recargando perfil:', error);
+      Alert.alert('Error', 'No se pudo actualizar el perfil');
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   if (!user) {
@@ -404,8 +436,12 @@ const styles = StyleSheet.create({
   },
   debugButton: {
     backgroundColor: '#F8F9FA',
+    padding: 12,
     borderRadius: 8,
+    alignItems: 'center',
     marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   debugButtonText: {
     fontSize: 14,
