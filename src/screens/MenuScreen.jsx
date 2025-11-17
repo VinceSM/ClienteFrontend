@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,10 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
+// Importar useAuth y CartContext
+import { useAuth } from '../hooks/useAuth';
+import { useCart } from '../context/CartContext';
+
 // Componentes del carrito
 import CartFooter from '../components/carrito/CartFooter';
 import CartButton from '../components/carrito/CartButton';
@@ -23,12 +27,30 @@ import pedidoService from '../services/pedidoService';
 export default function MenuScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { comercio, productos, clienteId } = route.params || {};
+  const { user } = useAuth();
+  const { comercio, productos } = route.params || {};
+  
+  // Usar el contexto del carrito
+  const { 
+    items: carrito, 
+    addToCart, 
+    updateQuantity, 
+    removeFromCart,
+    clearCart,
+    setComercio 
+  } = useCart();
+
+  // Obtener clienteId del usuario autenticado
+  const clienteId = user?.id || user?.idcliente;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoriaActiva, setCategoriaActiva] = useState('todos');
-  const [carrito, setCarrito] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // DEBUG
+  console.log('🔍 MenuScreen - User:', user);
+  console.log('🔍 MenuScreen - ClienteId:', clienteId);
+  console.log('🔍 MenuScreen - Comercio:', comercio?.nombreComercio);
 
   // Obtener categorías únicas de los productos
   const categorias = ['todos', ...new Set(productos?.map(p => p.categoria).filter(Boolean))];
@@ -41,52 +63,37 @@ export default function MenuScreen() {
     return coincideBusqueda && coincideCategoria;
   }) || [];
 
-  // Funciones del carrito
+  // Funciones del carrito usando el contexto
   const agregarAlCarrito = (producto) => {
-    setCarrito(prevCarrito => {
-      const existe = prevCarrito.find(item => item.idproducto === producto.idproducto);
-      if (existe) {
-        return prevCarrito.map(item =>
-          item.idproducto === producto.idproducto
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prevCarrito, { ...producto, quantity: 1 }];
-    });
+    addToCart(producto, 1);
   };
 
   const aumentarCantidad = (productoId) => {
-    setCarrito(prevCarrito =>
-      prevCarrito.map(item =>
-        item.idproducto === productoId
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      )
-    );
+    const item = carrito.find(item => item.producto.idproducto === productoId);
+    if (item) {
+      updateQuantity(productoId, item.cantidad + 1);
+    }
   };
 
   const disminuirCantidad = (productoId) => {
-    setCarrito(prevCarrito =>
-      prevCarrito.map(item =>
-        item.idproducto === productoId && item.quantity > 1
-          ? { ...item, quantity: item.quantity - 1 }
-          : item
-      ).filter(item => item.quantity > 0)
-    );
+    const item = carrito.find(item => item.producto.idproducto === productoId);
+    if (item && item.cantidad > 1) {
+      updateQuantity(productoId, item.cantidad - 1);
+    } else {
+      removeFromCart(productoId);
+    }
   };
 
   const eliminarDelCarrito = (productoId) => {
-    setCarrito(prevCarrito =>
-      prevCarrito.filter(item => item.idproducto !== productoId)
-    );
+    removeFromCart(productoId);
   };
 
+  // Calcular total y cantidad de items
   const calcularTotal = () => {
-    return carrito.reduce((total, item) => total + (item.precioUnitario * item.quantity), 0);
+    return carrito.reduce((total, item) => total + (item.producto.precioUnitario * item.cantidad), 0);
   };
 
-  const totalItems = carrito.reduce((total, item) => total + item.quantity, 0);
+  const totalItems = carrito.reduce((total, item) => total + item.cantidad, 0);
 
   // Función para formatear precio
   const formatPrecio = (precio) => {
@@ -116,23 +123,24 @@ export default function MenuScreen() {
     setLoading(true);
 
     try {
-      const pedidoData = {
-        clienteId: clienteId,
-        comercioRepartidor: comercio.idcomercio,
-        metodoPagoId: 1, // Método de pago por defecto
-        items: carrito.map(item => ({
-          productoId: item.idproducto,
-          comercioId: comercio.idcomercio,
-          cantidad: item.quantity,
-          precioUnitario: item.precioUnitario
-        }))
-      };
+    const pedidoData = {
+      clienteId: clienteId,
+      comercioRepartidor: comercio.idcomercio,
+      metodoPagoId: 1,
+      items: carrito.map(item => ({
+        productoId: item.producto.idproducto,
+        comercioId: comercio.idcomercio,
+        cantidad: item.cantidad,
+        precioUnitario: item.producto.precioUnitario
+      }))
+    };
 
-      console.log('Creando pedido con datos:', pedidoData);
+
+      console.log('📦 Creando pedido con datos:', pedidoData);
       
       const resultado = await pedidoService.createPedido(pedidoData);
       
-      console.log('Pedido creado exitosamente:', resultado);
+      console.log('✅ Pedido creado exitosamente:', resultado);
       
       Alert.alert(
         '¡Pedido realizado! 🎉',
@@ -141,20 +149,19 @@ export default function MenuScreen() {
           {
             text: 'Ver mis pedidos',
             onPress: () => {
-              setCarrito([]);
-              // Navegar a la pantalla de pedidos si existe
-              navigation.navigate('Pedidos', { clienteId });
+              clearCart();
+              navigation.navigate('Orders');
             }
           },
           {
             text: 'Seguir comprando',
             style: 'cancel',
-            onPress: () => setCarrito([])
+            onPress: () => clearCart()
           }
         ]
       );
     } catch (error) {
-      console.error('Error al crear pedido:', error);
+      console.error('❌ Error al crear pedido:', error);
       Alert.alert(
         'Error al realizar pedido', 
         error.message || 'No se pudo completar el pedido. Por favor, intenta nuevamente.'
@@ -165,13 +172,27 @@ export default function MenuScreen() {
   };
 
   const handleVerCarrito = () => {
-    // Navegar a pantalla del carrito con los datos
-    navigation.navigate('Carrito', {
-      carrito,
-      comercio,
+    // Limpiar datos sensibles del comercio
+    const safeComercio = {
+      idcomercio: comercio.idcomercio,
+      nombreComercio: comercio.nombreComercio,
+      tipoComercio: comercio.tipoComercio,
+      eslogan: comercio.eslogan,
+      fotoPortada: comercio.fotoPortada,
+      envio: comercio.envio,
+      deliveryPropio: comercio.deliveryPropio,
+      celular: comercio.celular,
+      ciudad: comercio.ciudad,
+      calle: comercio.calle,
+      numero: comercio.numero,
+    };
+
+    // Configurar el comercio en el contexto
+    setComercio(safeComercio);
+
+    // Navegar sin pasar funciones
+    navigation.navigate('Cart', {
       clienteId,
-      onActualizarCarrito: setCarrito,
-      onRealizarPedido: handleRealizarPedido
     });
   };
 
@@ -186,7 +207,6 @@ export default function MenuScreen() {
           {formatPrecio(producto.precioUnitario)}
         </Text>
         
-        {/* Información adicional del producto */}
         <View style={styles.productoMeta}>
           {producto.stock && (
             <View style={styles.stockDisponible}>
@@ -203,7 +223,6 @@ export default function MenuScreen() {
         </View>
       </View>
       
-      {/* Imagen del producto */}
       <View style={styles.productoImagenContainer}>
         {producto.fotoPortada && producto.fotoPortada !== 'default.jpg' ? (
           <Image 
@@ -217,7 +236,6 @@ export default function MenuScreen() {
           </View>
         )}
         
-        {/* Botón de agregar al carrito */}
         <TouchableOpacity 
           style={styles.agregarButton}
           onPress={() => agregarAlCarrito(producto)}
@@ -247,14 +265,7 @@ export default function MenuScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Menú de {comercio?.nombreComercio}</Text>
         <View style={styles.headerRight}>
           <CartButton 
@@ -269,7 +280,6 @@ export default function MenuScreen() {
         style={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Información del comercio */}
         <View style={styles.comercioInfo}>
           <Text style={styles.comercioNombre}>{comercio?.nombreComercio}</Text>
           <Text style={styles.comercioEslogan}>{comercio?.eslogan}</Text>
@@ -278,7 +288,6 @@ export default function MenuScreen() {
           </Text>
         </View>
 
-        {/* Buscador */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
           <TextInput
@@ -295,7 +304,6 @@ export default function MenuScreen() {
           )}
         </View>
 
-        {/* Categorías */}
         {categorias.length > 1 && (
           <View style={styles.categoriasSection}>
             <Text style={styles.sectionTitle}>Categorías</Text>
@@ -310,7 +318,6 @@ export default function MenuScreen() {
           </View>
         )}
 
-        {/* Lista de productos */}
         <View style={styles.productosSection}>
           {productosFiltrados.length === 0 ? (
             <View style={styles.emptyState}>
@@ -346,17 +353,14 @@ export default function MenuScreen() {
         </View>
       </ScrollView>
 
-      {/* Footer con carrito */}
       <CartFooter
         itemCount={totalItems}
         total={calcularTotal()}
         onCartPress={handleVerCarrito}
         onCheckout={handleRealizarPedido}
         showCartButton={false}
-        loading={loading}
       />
       
-      {/* Overlay de loading */}
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#FF6B6B" />
@@ -397,7 +401,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingBottom: 100, // Espacio para el footer
+    paddingBottom: 100,
   },
   comercioInfo: {
     padding: 20,

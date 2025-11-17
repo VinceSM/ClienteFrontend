@@ -126,42 +126,65 @@ class PedidoService {
     return data;
   }
 
-  async createPedido(pedidoData) {
+async createPedido(pedidoData) {
+  const repartidorIdsToTry = [0, null, 1];
+  
+  let lastError = null;
+
+  for (const repartidorId of repartidorIdsToTry) {
     const request = {
       ClienteId: pedidoData.clienteId,
-      ComercioRepartidor: pedidoData.comercioRepartidor,
+      RepartidorId: repartidorId,
       MetodoPagoId: pedidoData.metodoPagoId,
       Items: pedidoData.items.map(item => ({
         ProductoId: item.productoId,
         ComercioId: item.comercioId,
         Cantidad: item.cantidad,
         PrecioUnitario: item.precioUnitario
-      }))
+      })),
+      ComercioRepartidor: true
     };
 
-    const response = await fetch(`${this.baseURL}/api/pedidos`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    console.log(`🔄 Probando RepartidorId: ${repartidorId}`, JSON.stringify(request, null, 2));
 
-    const responseText = await response.text();
-    
-    if (!responseText) {
-      throw new Error('Respuesta vacía del servidor');
+    try {
+      const response = await fetch(`${this.baseURL}/api/pedidos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
+
+      const responseText = await response.text();
+      
+      console.log(`📡 Respuesta con RepartidorId ${repartidorId}:`, {
+        status: response.status,
+        responseText: responseText
+      });
+
+      if (response.ok) {
+        const data = JSON.parse(responseText);
+        console.log(`✅ Éxito con RepartidorId: ${repartidorId}`);
+        return data;
+      }
+
+      if (response.status !== 500) {
+        // Si no es error 500, lanzar error
+        throw new Error(`Error ${response.status}: ${responseText}`);
+      }
+
+      // Si es 500, continuar con el siguiente valor
+      lastError = new Error(`RepartidorId ${repartidorId} falló: ${responseText}`);
+
+    } catch (error) {
+      lastError = error;
     }
-
-    const data = JSON.parse(responseText);
-
-    if (!response.ok) {
-      throw new Error(data.message || `Error ${response.status}`);
-    }
-
-    return data;
   }
+
+  throw lastError || new Error('No se pudo crear el pedido con ningún RepartidorId');
+}
 
   async updateEstadoPedido(id, nuevoEstado) {
     const response = await fetch(`${this.baseURL}/api/pedidos/${id}/estado`, {

@@ -6,14 +6,14 @@ const cartReducer = (state, action) => {
   switch (action.type) {
     case 'ADD_TO_CART':
       const existingItem = state.items.find(
-        item => item.producto.id === action.payload.producto.id
+        item => item.producto.idproducto === action.payload.producto.idproducto
       );
 
       if (existingItem) {
         return {
           ...state,
           items: state.items.map(item =>
-            item.producto.id === action.payload.producto.id
+            item.producto.idproducto === action.payload.producto.idproducto
               ? { ...item, cantidad: item.cantidad + action.payload.cantidad }
               : item
           ),
@@ -28,14 +28,14 @@ const cartReducer = (state, action) => {
     case 'REMOVE_FROM_CART':
       return {
         ...state,
-        items: state.items.filter(item => item.producto.id !== action.payload),
+        items: state.items.filter(item => item.producto.idproducto !== action.payload),
       };
 
     case 'UPDATE_QUANTITY':
       return {
         ...state,
         items: state.items.map(item =>
-          item.producto.id === action.payload.productId
+          item.producto.idproducto === action.payload.productId
             ? { ...item, cantidad: action.payload.cantidad }
             : item
         ),
@@ -105,7 +105,7 @@ export function CartProvider({ children }) {
 
   const getTotalPrice = () => {
     return state.items.reduce(
-      (total, item) => total + item.producto.precio * item.cantidad,
+      (total, item) => total + (item.producto.precioUnitario * item.cantidad),
       0
     );
   };
