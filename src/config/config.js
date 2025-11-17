@@ -1,11 +1,10 @@
-// src/config/config.js
 import { Platform } from 'react-native';
 
 // Detectar automáticamente el entorno y configurar la URL base
 const getBaseUrl = () => {
   // Si estamos en React Native
   if (Platform.OS !== 'web') {
-    return 'http://192.168.1.35:5189'; // Para React Native (Android/iOS)
+    return 'http://192.168.1.40:5189'; // Para React Native (Android/iOS)
   }
   
   // Si estamos en desarrollo web
@@ -36,7 +35,16 @@ const API_CONFIG = {
       PRODUCTOS: '/api/categorias/{id}/productos',
       BUSCAR_PRODUCTOS: '/api/categorias/productos/buscar'
     },
-    CLIENTES: '/api/Clientes'
+    CLIENTES: '/api/Clientes',
+    PEDIDOS: {
+      BASE: '/api/pedidos',
+      BY_CLIENTE: '/api/pedidos/cliente/{id}',
+      BY_REPARTIDOR: '/api/pedidos/repartidor/{id}',
+      BY_ESTADO: '/api/pedidos/estado/{estado}',
+      TOTAL: '/api/pedidos/{id}/total',
+      ESTADO: '/api/pedidos/{id}/estado',
+      PAGO: '/api/pedidos/{id}/pago'
+    }
   }
 };
 

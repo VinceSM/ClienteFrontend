@@ -9,6 +9,8 @@ import {
   Image,
   TextInput,
   FlatList,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,15 +18,17 @@ import { Ionicons } from '@expo/vector-icons';
 // Componentes del carrito
 import CartFooter from '../components/carrito/CartFooter';
 import CartButton from '../components/carrito/CartButton';
+import pedidoService from '../services/pedidoService';
 
 export default function MenuScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { comercio, productos } = route.params || {};
+  const { comercio, productos, clienteId } = route.params || {};
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoriaActiva, setCategoriaActiva] = useState('todos');
   const [carrito, setCarrito] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // Obtener categorías únicas de los productos
   const categorias = ['todos', ...new Set(productos?.map(p => p.categoria).filter(Boolean))];
@@ -91,6 +95,84 @@ export default function MenuScreen() {
       currency: 'ARS',
       minimumFractionDigits: 0,
     }).format(precio);
+  };
+
+  const handleRealizarPedido = async () => {
+    if (carrito.length === 0) {
+      Alert.alert('Carrito vacío', 'Agrega productos al carrito antes de realizar el pedido');
+      return;
+    }
+
+    if (!clienteId) {
+      Alert.alert('Error', 'No se pudo identificar al cliente. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
+    if (!comercio?.idcomercio) {
+      Alert.alert('Error', 'Información del comercio incompleta');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const pedidoData = {
+        clienteId: clienteId,
+        comercioRepartidor: comercio.idcomercio,
+        metodoPagoId: 1, // Método de pago por defecto
+        items: carrito.map(item => ({
+          productoId: item.idproducto,
+          comercioId: comercio.idcomercio,
+          cantidad: item.quantity,
+          precioUnitario: item.precioUnitario
+        }))
+      };
+
+      console.log('Creando pedido con datos:', pedidoData);
+      
+      const resultado = await pedidoService.createPedido(pedidoData);
+      
+      console.log('Pedido creado exitosamente:', resultado);
+      
+      Alert.alert(
+        '¡Pedido realizado! 🎉',
+        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(calcularTotal())}`,
+        [
+          {
+            text: 'Ver mis pedidos',
+            onPress: () => {
+              setCarrito([]);
+              // Navegar a la pantalla de pedidos si existe
+              navigation.navigate('Pedidos', { clienteId });
+            }
+          },
+          {
+            text: 'Seguir comprando',
+            style: 'cancel',
+            onPress: () => setCarrito([])
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error al crear pedido:', error);
+      Alert.alert(
+        'Error al realizar pedido', 
+        error.message || 'No se pudo completar el pedido. Por favor, intenta nuevamente.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerCarrito = () => {
+    // Navegar a pantalla del carrito con los datos
+    navigation.navigate('Carrito', {
+      carrito,
+      comercio,
+      clienteId,
+      onActualizarCarrito: setCarrito,
+      onRealizarPedido: handleRealizarPedido
+    });
   };
 
   const renderProducto = ({ item: producto }) => (
@@ -163,20 +245,16 @@ export default function MenuScreen() {
     </TouchableOpacity>
   );
 
-  const handleVerCarrito = () => {
-    // Navegar a pantalla del carrito (si existe)
-    console.log('Ver carrito');
-  };
-
-  const handleRealizarPedido = () => {
-    // Navegar a pantalla de checkout
-    console.log('Realizar pedido');
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Menú de {comercio?.nombreComercio}</Text>
         <View style={styles.headerRight}>
           <CartButton 
@@ -275,12 +353,20 @@ export default function MenuScreen() {
         onCartPress={handleVerCarrito}
         onCheckout={handleRealizarPedido}
         showCartButton={false}
+        loading={loading}
       />
+      
+      {/* Overlay de loading */}
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#FF6B6B" />
+          <Text style={styles.loadingText}>Creando tu pedido...</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
-// ... (los styles permanecen iguales, solo se quitan los del footer)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -508,5 +594,18 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
