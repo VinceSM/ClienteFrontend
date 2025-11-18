@@ -43,7 +43,7 @@ export default function CartScreen() {
 
   const [loading, setLoading] = useState(false);
   const [showConfirmacion, setShowConfirmacion] = useState(false);
-  const [direccion, setDireccion] = useState('Calle 25 entre 24 y 26 N1681');
+  const [direccion, setDireccion] = useState(''); // Campo vacío inicialmente
   const [metodoPago, setMetodoPago] = useState('efectivo');
   const [observaciones, setObservaciones] = useState('');
 
@@ -100,15 +100,19 @@ export default function CartScreen() {
     );
   };
 
-  const handleConfirmarPedido = () => {
-    if (!direccion.trim()) {
-      Alert.alert('Error', 'Por favor ingresa una dirección de entrega');
-      return;
-    }
+  // CORREGIDO: Solo abre el modal sin validar dirección
+  const handleAbrirConfirmacion = () => {
     setShowConfirmacion(true);
   };
 
+  // CORREGIDO: Esta función realiza el pedido después de que el usuario ingresa la dirección en el modal
   const handleRealizarPedido = async () => {
+    // Validar que la dirección no esté vacía (esto se hace en el modal)
+    if (!direccion.trim()) {
+      Alert.alert('Dirección requerida', 'Por favor ingresa una dirección de entrega para continuar con tu pedido.');
+      return;
+    }
+
     if (carrito.length === 0) {
       Alert.alert('Carrito vacío', 'Agrega productos al carrito antes de realizar el pedido');
       return;
@@ -131,8 +135,8 @@ export default function CartScreen() {
         clienteId: clienteId,
         comercioRepartidor: comercio.idcomercio,
         metodoPagoId: metodoPago === 'efectivo' ? 1 : 2, // 1: Efectivo, 2: Tarjeta
-        direccionEntrega: direccion,
-        observaciones: observaciones,
+        direccionEntrega: direccion.trim(),
+        observaciones: observaciones.trim(),
         items: carrito.map(item => ({
           productoId: item.producto.idproducto,
           comercioId: comercio.idcomercio,
@@ -191,7 +195,7 @@ export default function CartScreen() {
     />
   );
 
-  // Modal de confirmación
+  // Modal de confirmación - CORREGIDO: Cambiado a "Realizar Pedido"
   const ModalConfirmacion = () => (
     <Modal
       visible={showConfirmacion}
@@ -200,7 +204,8 @@ export default function CartScreen() {
     >
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Confirmar Pedido</Text>
+          {/* CORREGIDO: Cambiado a "Realizar Pedido" */}
+          <Text style={styles.modalTitle}>Realizar Pedido</Text>
           <TouchableOpacity 
             onPress={() => setShowConfirmacion(false)}
             style={styles.closeButton}
@@ -212,14 +217,21 @@ export default function CartScreen() {
         <ScrollView style={styles.modalContent}>
           {/* Dirección de entrega */}
           <View style={styles.confirmSection}>
-            <Text style={styles.sectionTitle}>📍 Dirección de entrega</Text>
+            <Text style={styles.sectionTitle}>📍 Dirección de entrega *</Text>
             <TextInput
               style={styles.direccionInput}
               value={direccion}
               onChangeText={setDireccion}
-              placeholder="Ingresa tu dirección de entrega"
+              placeholder="Ej: Calle 99 entre 99 y 99 N1099"
+              placeholderTextColor="#999"
               multiline
+              numberOfLines={3}
             />
+            {!direccion.trim() && (
+              <Text style={styles.errorText}>
+                La dirección de entrega es obligatoria
+              </Text>
+            )}
           </View>
 
           {/* Método de pago */}
@@ -268,19 +280,6 @@ export default function CartScreen() {
             </View>
           </View>
 
-          {/* Observaciones */}
-          <View style={styles.confirmSection}>
-            <Text style={styles.sectionTitle}>📝 Observaciones (opcional)</Text>
-            <TextInput
-              style={styles.observacionesInput}
-              value={observaciones}
-              onChangeText={setObservaciones}
-              placeholder="Alguna indicación especial para la entrega..."
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
           {/* Resumen del pedido */}
           <View style={styles.confirmSection}>
             <Text style={styles.sectionTitle}>📦 Resumen del pedido</Text>
@@ -310,15 +309,16 @@ export default function CartScreen() {
           <TouchableOpacity 
             style={[
               styles.confirmarButton,
-              loading && styles.confirmarButtonDisabled
+              (!direccion.trim() || loading) && styles.confirmarButtonDisabled
             ]}
             onPress={handleRealizarPedido}
-            disabled={loading}
+            disabled={!direccion.trim() || loading}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
+                {/* CORREGIDO: Cambiado a "Confirmar Pedido" */}
                 <Text style={styles.confirmarButtonText}>
                   Confirmar Pedido
                 </Text>
@@ -449,12 +449,13 @@ export default function CartScreen() {
           </Text>
         </View>
 
+        {/* CORREGIDO: Cambiado a handleAbrirConfirmacion */}
         <TouchableOpacity 
           style={styles.checkoutButton}
-          onPress={handleConfirmarPedido}
+          onPress={handleAbrirConfirmacion}
         >
           <Text style={styles.checkoutButtonText}>
-            Confirmar Pedido - {formatPrecio(totalConEnvio)}
+            Realizar Pedido - {formatPrecio(totalConEnvio)}
           </Text>
         </TouchableOpacity>
       </View>
