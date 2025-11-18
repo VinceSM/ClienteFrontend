@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../context/CartContext';
 import pedidoService from '../services/pedidoService';
+import { metodoPagoService } from '../services/metodoPagoService';
+import { estadoPedidoService } from '../services/estadoPedidoService';
 
 // Componentes del carrito
 import CartItem from '../components/carrito/CartItem';
@@ -42,10 +44,48 @@ export default function CartScreen() {
   const clienteId = clienteIdFromParams || user?.id;
 
   const [loading, setLoading] = useState(false);
+  const [loadingMetodos, setLoadingMetodos] = useState(false);
   const [showConfirmacion, setShowConfirmacion] = useState(false);
-  const [direccion, setDireccion] = useState(''); // Campo vacío inicialmente
-  const [metodoPago, setMetodoPago] = useState('efectivo');
+  const [direccion, setDireccion] = useState('');
+  const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState(null);
+  const [metodosPago, setMetodosPago] = useState([]);
+  const [estadoPedidoPendiente, setEstadoPedidoPendiente] = useState(null);
   const [observaciones, setObservaciones] = useState('');
+
+  // Cargar métodos de pago y estado por defecto
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        setLoadingMetodos(true);
+        
+        // Cargar métodos de pago activos
+        const metodosData = await metodoPagoService.getAllMetodosPago();
+        setMetodosPago(metodosData);
+        
+        // Seleccionar el primer método por defecto
+        if (metodosData.length > 0) {
+          setMetodoPagoSeleccionado(metodosData[0]);
+        }
+        
+        // Cargar estado "PENDIENTE" por defecto
+        const estadoPendiente = await estadoPedidoService.getEstadoByTipo('PENDIENTE');
+        setEstadoPedidoPendiente(estadoPendiente);
+        
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+        // Fallback a valores por defecto si hay error
+        setMetodosPago([
+          { idmetodo: 1, metodo: 'EFECTIVO', descripcion: 'Pago en efectivo' },
+          { idmetodo: 2, metodo: 'TARJETA', descripcion: 'Pago con tarjeta' }
+        ]);
+        setMetodoPagoSeleccionado({ idmetodo: 1, metodo: 'EFECTIVO' });
+      } finally {
+        setLoadingMetodos(false);
+      }
+    };
+
+    cargarDatos();
+  }, []);
 
   // Función para formatear precio
   const formatPrecio = (precio) => {
@@ -100,14 +140,12 @@ export default function CartScreen() {
     );
   };
 
-  // CORREGIDO: Solo abre el modal sin validar dirección
   const handleAbrirConfirmacion = () => {
     setShowConfirmacion(true);
   };
 
-  // CORREGIDO: Esta función realiza el pedido después de que el usuario ingresa la dirección en el modal
   const handleRealizarPedido = async () => {
-    // Validar que la dirección no esté vacía (esto se hace en el modal)
+    // Validar que la dirección no esté vacía
     if (!direccion.trim()) {
       Alert.alert('Dirección requerida', 'Por favor ingresa una dirección de entrega para continuar con tu pedido.');
       return;
@@ -128,13 +166,18 @@ export default function CartScreen() {
       return;
     }
 
+    if (!metodoPagoSeleccionado) {
+      Alert.alert('Error', 'Por favor selecciona un método de pago');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const pedidoData = {
         clienteId: clienteId,
         comercioRepartidor: comercio.idcomercio,
-        metodoPagoId: metodoPago === 'efectivo' ? 1 : 2, // 1: Efectivo, 2: Tarjeta
+        metodoPagoId: metodoPagoSeleccionado.idmetodo,
         direccionEntrega: direccion.trim(),
         observaciones: observaciones.trim(),
         items: carrito.map(item => ({
@@ -155,7 +198,7 @@ export default function CartScreen() {
       
       Alert.alert(
         '¡Pedido realizado! 🎉',
-        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(totalConEnvio)}`,
+        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(totalConEnvio)}\nEstado: ${resultado.estadoPedido?.tipo || 'PENDIENTE'}`,
         [
           {
             text: 'Ver mis pedidos',
@@ -195,7 +238,23 @@ export default function CartScreen() {
     />
   );
 
-  // Modal de confirmación - CORREGIDO: Cambiado a "Realizar Pedido"
+  // Función para obtener icono según método de pago
+  const getMetodoPagoIcon = (metodo) => {
+    switch (metodo?.toUpperCase()) {
+      case 'EFECTIVO':
+        return 'cash';
+      case 'TARJETA':
+        return 'card';
+      case 'TRANSFERENCIA':
+        return 'business';
+      case 'MERCADO PAGO':
+        return 'phone-portrait';
+      default:
+        return 'wallet';
+    }
+  };
+
+  // Modal de confirmación
   const ModalConfirmacion = () => (
     <Modal
       visible={showConfirmacion}
@@ -204,7 +263,6 @@ export default function CartScreen() {
     >
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          {/* CORREGIDO: Cambiado a "Realizar Pedido" */}
           <Text style={styles.modalTitle}>Realizar Pedido</Text>
           <TouchableOpacity 
             onPress={() => setShowConfirmacion(false)}
@@ -237,47 +295,55 @@ export default function CartScreen() {
           {/* Método de pago */}
           <View style={styles.confirmSection}>
             <Text style={styles.sectionTitle}>💳 Método de pago</Text>
-            <View style={styles.pagoOptions}>
-              <TouchableOpacity
-                style={[
-                  styles.pagoOption,
-                  metodoPago === 'efectivo' && styles.pagoOptionSelected
-                ]}
-                onPress={() => setMetodoPago('efectivo')}
-              >
-                <Ionicons 
-                  name="cash" 
-                  size={24} 
-                  color={metodoPago === 'efectivo' ? '#FF6B6B' : '#666'} 
-                />
-                <Text style={[
-                  styles.pagoOptionText,
-                  metodoPago === 'efectivo' && styles.pagoOptionTextSelected
-                ]}>
-                  Efectivo
-                </Text>
-              </TouchableOpacity>
+            {loadingMetodos ? (
+              <ActivityIndicator size="small" color="#FF6B6B" />
+            ) : (
+              <View style={styles.pagoOptions}>
+                {metodosPago.map((metodo) => (
+                  <TouchableOpacity
+                    key={metodo.idmetodo}
+                    style={[
+                      styles.pagoOption,
+                      metodoPagoSeleccionado?.idmetodo === metodo.idmetodo && styles.pagoOptionSelected
+                    ]}
+                    onPress={() => setMetodoPagoSeleccionado(metodo)}
+                  >
+                    <Ionicons 
+                      name={getMetodoPagoIcon(metodo.metodo)} 
+                      size={24} 
+                      color={metodoPagoSeleccionado?.idmetodo === metodo.idmetodo ? '#FF6B6B' : '#666'} 
+                    />
+                    <View style={styles.pagoOptionInfo}>
+                      <Text style={[
+                        styles.pagoOptionText,
+                        metodoPagoSeleccionado?.idmetodo === metodo.idmetodo && styles.pagoOptionTextSelected
+                      ]}>
+                        {metodo.metodo}
+                      </Text>
+                      {metodo.descripcion && (
+                        <Text style={styles.pagoOptionDesc}>
+                          {metodo.descripcion}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.pagoOption,
-                  metodoPago === 'tarjeta' && styles.pagoOptionSelected
-                ]}
-                onPress={() => setMetodoPago('tarjeta')}
-              >
-                <Ionicons 
-                  name="card" 
-                  size={24} 
-                  color={metodoPago === 'tarjeta' ? '#FF6B6B' : '#666'} 
-                />
-                <Text style={[
-                  styles.pagoOptionText,
-                  metodoPago === 'tarjeta' && styles.pagoOptionTextSelected
-                ]}>
-                  Tarjeta
-                </Text>
-              </TouchableOpacity>
-            </View>
+          {/* Observaciones */}
+          <View style={styles.confirmSection}>
+            <Text style={styles.sectionTitle}>📝 Observaciones (opcional)</Text>
+            <TextInput
+              style={styles.observacionesInput}
+              value={observaciones}
+              onChangeText={setObservaciones}
+              placeholder="Instrucciones especiales para la entrega..."
+              placeholderTextColor="#999"
+              multiline
+              numberOfLines={3}
+            />
           </View>
 
           {/* Resumen del pedido */}
@@ -295,6 +361,15 @@ export default function CartScreen() {
                 </View>
               ))}
               
+              {comercio?.envio > 0 && (
+                <View style={styles.resumenItem}>
+                  <Text style={styles.resumenNombre}>Costo de envío</Text>
+                  <Text style={styles.resumenPrecio}>
+                    {formatPrecio(comercio.envio)}
+                  </Text>
+                </View>
+              )}
+              
               <View style={styles.resumenTotal}>
                 <Text style={styles.resumenTotalLabel}>Total:</Text>
                 <Text style={styles.resumenTotalPrecio}>
@@ -303,22 +378,29 @@ export default function CartScreen() {
               </View>
             </View>
           </View>
+
+          {/* Información del estado */}
+          <View style={styles.infoSection}>
+            <Ionicons name="information-circle" size={20} color="#007AFF" />
+            <Text style={styles.infoText}>
+              Tu pedido será creado con estado "PENDIENTE". El comercio te notificará cuando sea confirmado.
+            </Text>
+          </View>
         </ScrollView>
 
         <View style={styles.modalFooter}>
           <TouchableOpacity 
             style={[
               styles.confirmarButton,
-              (!direccion.trim() || loading) && styles.confirmarButtonDisabled
+              (!direccion.trim() || loading || !metodoPagoSeleccionado) && styles.confirmarButtonDisabled
             ]}
             onPress={handleRealizarPedido}
-            disabled={!direccion.trim() || loading}
+            disabled={!direccion.trim() || loading || !metodoPagoSeleccionado}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
-                {/* CORREGIDO: Cambiado a "Confirmar Pedido" */}
                 <Text style={styles.confirmarButtonText}>
                   Confirmar Pedido
                 </Text>
@@ -449,7 +531,6 @@ export default function CartScreen() {
           </Text>
         </View>
 
-        {/* CORREGIDO: Cambiado a handleAbrirConfirmacion */}
         <TouchableOpacity 
           style={styles.checkoutButton}
           onPress={handleAbrirConfirmacion}

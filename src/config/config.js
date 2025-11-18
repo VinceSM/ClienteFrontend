@@ -4,7 +4,8 @@ import { Platform } from 'react-native';
 const getBaseUrl = () => {
   // Si estamos en React Native
   if (Platform.OS !== 'web') {
-    return 'http://192.168.1.40:5189'; // Para React Native (Android/iOS)
+    //return 'http://192.168.1.40:5189'; // Para React Native (Android/iOS)
+    return 'http://192.168.1.43:5189'; // Viya
   }
   
   // Si estamos en desarrollo web
@@ -43,7 +44,21 @@ const API_CONFIG = {
       BY_ESTADO: '/api/pedidos/estado/{estado}',
       TOTAL: '/api/pedidos/{id}/total',
       ESTADO: '/api/pedidos/{id}/estado',
-      PAGO: '/api/pedidos/{id}/pago'
+      PAGO: '/api/pedidos/{id}/pago',
+      CREATE: '/api/pedidos'
+    },
+    METODOS_PAGO: {
+      GET_ALL: '/api/metodos-pago-pedido',
+      GET_BY_ID: '/api/metodos-pago-pedido/{id}',
+      GET_BY_METODO: '/api/metodos-pago-pedido/metodo/{metodo}'
+    },
+    ESTADOS_PEDIDO: {
+      GET_ALL: '/api/estados-pedido',
+      GET_BY_ID: '/api/estados-pedido/{id}',
+      GET_BY_TIPO: '/api/estados-pedido/tipo/{tipo}'
+    },
+    ITEM_PEDIDOS: {
+      GET_BY_PEDIDO: '/api/item-pedidos/pedido/{pedidoId}'
     }
   }
 };
