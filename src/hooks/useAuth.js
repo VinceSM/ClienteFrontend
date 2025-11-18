@@ -265,39 +265,27 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const actualizarDireccion = async (direccion) => {
-    try {
-      if (!user?.id) {
-        throw new Error('ID de cliente no disponible');
-      }
-      
-      console.log('🔄 Actualizando dirección...');
-      const resultado = await PerfilService.updateDireccion(user.id, direccion);
-      const nuevoUser = { 
-        ...user, 
-        calle: direccion.calle,
-        numero: direccion.numero,
-        ciudad: direccion.ciudad
-      };
-      
-      setUser(nuevoUser);
-      // REEMPLAZADO: Guardar con AsyncStorage
-      await AsyncStorage.setItem('userData', JSON.stringify(nuevoUser));
-      console.log('✅ Dirección actualizada:', nuevoUser);
-      
-      return resultado;
-    } catch (error) {
-      console.error('Error actualizando dirección:', error);
-      throw error;
-    }
-  };
+const actualizarDireccion = async (direccion) => {
+  try {
+    const resultado = await PerfilService.updateDireccion(user.id, direccion);
+    
+    const usuarioActualizado = { ...user, ...direccion };
+    setUser(usuarioActualizado);
+    await AsyncStorage.setItem('userData', JSON.stringify(usuarioActualizado));
+    
+    return resultado;
+  } catch (error) {
+    console.error('Error actualizando dirección:', error);
+    throw error;
+  }
+};
 
   const cargarDatosCliente = async (clienteId) => {
     try {
       console.log('🔄 Cargando datos del cliente...');
       const clienteData = await PerfilService.getClienteById(clienteId);
       setUser(clienteData);
-      // REEMPLAZADO: Guardar con AsyncStorage
+  
       await AsyncStorage.setItem('userData', JSON.stringify(clienteData));
       console.log('✅ Datos del cliente cargados:', clienteData);
       return clienteData;
@@ -317,7 +305,7 @@ export function AuthProvider({ children }) {
         const clientePorEmail = await PerfilService.buscarClientePorEmail(user.email);
         if (clientePorEmail) {
           setUser(clientePorEmail);
-          // REEMPLAZADO: Guardar con AsyncStorage
+ 
           await AsyncStorage.setItem('userData', JSON.stringify(clientePorEmail));
           console.log('✅ Perfil recargado por email:', clientePorEmail);
           return clientePorEmail;

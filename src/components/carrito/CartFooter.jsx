@@ -43,7 +43,7 @@ export default function CartFooter({
         disabled={itemCount === 0}
       >
         <Text style={styles.checkoutButtonText}>
-          Realizar Pedido
+          Ver Carrito
         </Text>
       </TouchableOpacity>
     </View>
@@ -54,20 +54,19 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#E9ECEF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
+    shadowRadius: 3,
+    elevation: 5,
   },
   totalContainer: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 12,
   },
   totalLabel: {
     fontSize: 14,
@@ -75,16 +74,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   totalAmount: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#FF6B6B',
+    color: '#333333',
   },
   checkoutButton: {
     backgroundColor: '#FF6B6B',
-    paddingHorizontal: 24,
-    paddingVertical: 15,
-    borderRadius: 12,
-    minWidth: 150,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   checkoutButtonDisabled: {
     backgroundColor: '#CCCCCC',
@@ -93,6 +91,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'center',
   },
 });

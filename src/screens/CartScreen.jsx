@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  TextInput,
+  ScrollView,
+  Modal
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../context/CartContext';
 import pedidoService from '../services/pedidoService';
+
+// Componentes del carrito
+import CartItem from '../components/carrito/CartItem';
 
 export default function CartScreen() {
   const route = useRoute();
@@ -35,7 +41,11 @@ export default function CartScreen() {
   const { clienteId: clienteIdFromParams } = route.params || {};
   const clienteId = clienteIdFromParams || user?.id;
 
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showConfirmacion, setShowConfirmacion] = useState(false);
+  const [direccion, setDireccion] = useState('Calle 25 entre 24 y 26 N1681');
+  const [metodoPago, setMetodoPago] = useState('efectivo');
+  const [observaciones, setObservaciones] = useState('');
 
   // Función para formatear precio
   const formatPrecio = (precio) => {
@@ -50,6 +60,8 @@ export default function CartScreen() {
   const calcularTotal = () => {
     return getTotalPrice();
   };
+
+  const totalConEnvio = calcularTotal() + (comercio?.envio || 0);
 
   // Funciones para modificar el carrito usando el contexto
   const aumentarCantidad = (productoId) => {
@@ -88,6 +100,14 @@ export default function CartScreen() {
     );
   };
 
+  const handleConfirmarPedido = () => {
+    if (!direccion.trim()) {
+      Alert.alert('Error', 'Por favor ingresa una dirección de entrega');
+      return;
+    }
+    setShowConfirmacion(true);
+  };
+
   const handleRealizarPedido = async () => {
     if (carrito.length === 0) {
       Alert.alert('Carrito vacío', 'Agrega productos al carrito antes de realizar el pedido');
@@ -110,7 +130,9 @@ export default function CartScreen() {
       const pedidoData = {
         clienteId: clienteId,
         comercioRepartidor: comercio.idcomercio,
-        metodoPagoId: 1, // Método de pago por defecto
+        metodoPagoId: metodoPago === 'efectivo' ? 1 : 2, // 1: Efectivo, 2: Tarjeta
+        direccionEntrega: direccion,
+        observaciones: observaciones,
         items: carrito.map(item => ({
           productoId: item.producto.idproducto,
           comercioId: comercio.idcomercio,
@@ -125,9 +147,11 @@ export default function CartScreen() {
       
       console.log('✅ Pedido creado exitosamente:', resultado);
       
+      setShowConfirmacion(false);
+      
       Alert.alert(
         '¡Pedido realizado! 🎉',
-        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(calcularTotal())}`,
+        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(totalConEnvio)}`,
         [
           {
             text: 'Ver mis pedidos',
@@ -158,48 +182,155 @@ export default function CartScreen() {
   };
 
   const renderItem = ({ item }) => (
-    <View style={styles.itemContainer}>
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemNombre}>{item.producto.nombre}</Text>
-        <Text style={styles.itemDescripcion} numberOfLines={1}>
-          {item.producto.descripcion || 'Sin descripción'}
-        </Text>
-        <Text style={styles.itemPrecio}>
-          {formatPrecio(item.producto.precioUnitario)} c/u
-        </Text>
-      </View>
+    <CartItem 
+      item={item}
+      onIncrease={() => aumentarCantidad(item.producto.idproducto)}
+      onDecrease={() => disminuirCantidad(item.producto.idproducto)}
+      onRemove={() => eliminarDelCarrito(item.producto.idproducto)}
+      formatPrecio={formatPrecio}
+    />
+  );
 
-      <View style={styles.itemControls}>
-        <View style={styles.quantityContainer}>
+  // Modal de confirmación
+  const ModalConfirmacion = () => (
+    <Modal
+      visible={showConfirmacion}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Confirmar Pedido</Text>
           <TouchableOpacity 
-            style={styles.quantityButton}
-            onPress={() => disminuirCantidad(item.producto.idproducto)}
+            onPress={() => setShowConfirmacion(false)}
+            style={styles.closeButton}
           >
-            <Ionicons name="remove" size={16} color="#FF6B6B" />
-          </TouchableOpacity>
-          
-          <Text style={styles.quantityText}>{item.cantidad}</Text>
-          
-          <TouchableOpacity 
-            style={styles.quantityButton}
-            onPress={() => aumentarCantidad(item.producto.idproducto)}
-          >
-            <Ionicons name="add" size={16} color="#FF6B6B" />
+            <Ionicons name="close" size={24} color="#666" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.itemTotal}>
-          {formatPrecio(item.producto.precioUnitario * item.cantidad)}
-        </Text>
+        <ScrollView style={styles.modalContent}>
+          {/* Dirección de entrega */}
+          <View style={styles.confirmSection}>
+            <Text style={styles.sectionTitle}>📍 Dirección de entrega</Text>
+            <TextInput
+              style={styles.direccionInput}
+              value={direccion}
+              onChangeText={setDireccion}
+              placeholder="Ingresa tu dirección de entrega"
+              multiline
+            />
+          </View>
 
-        <TouchableOpacity 
-          style={styles.deleteButton}
-          onPress={() => eliminarDelCarrito(item.producto.idproducto)}
-        >
-          <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
-        </TouchableOpacity>
-      </View>
-    </View>
+          {/* Método de pago */}
+          <View style={styles.confirmSection}>
+            <Text style={styles.sectionTitle}>💳 Método de pago</Text>
+            <View style={styles.pagoOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.pagoOption,
+                  metodoPago === 'efectivo' && styles.pagoOptionSelected
+                ]}
+                onPress={() => setMetodoPago('efectivo')}
+              >
+                <Ionicons 
+                  name="cash" 
+                  size={24} 
+                  color={metodoPago === 'efectivo' ? '#FF6B6B' : '#666'} 
+                />
+                <Text style={[
+                  styles.pagoOptionText,
+                  metodoPago === 'efectivo' && styles.pagoOptionTextSelected
+                ]}>
+                  Efectivo
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.pagoOption,
+                  metodoPago === 'tarjeta' && styles.pagoOptionSelected
+                ]}
+                onPress={() => setMetodoPago('tarjeta')}
+              >
+                <Ionicons 
+                  name="card" 
+                  size={24} 
+                  color={metodoPago === 'tarjeta' ? '#FF6B6B' : '#666'} 
+                />
+                <Text style={[
+                  styles.pagoOptionText,
+                  metodoPago === 'tarjeta' && styles.pagoOptionTextSelected
+                ]}>
+                  Tarjeta
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Observaciones */}
+          <View style={styles.confirmSection}>
+            <Text style={styles.sectionTitle}>📝 Observaciones (opcional)</Text>
+            <TextInput
+              style={styles.observacionesInput}
+              value={observaciones}
+              onChangeText={setObservaciones}
+              placeholder="Alguna indicación especial para la entrega..."
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          {/* Resumen del pedido */}
+          <View style={styles.confirmSection}>
+            <Text style={styles.sectionTitle}>📦 Resumen del pedido</Text>
+            <View style={styles.resumenContainer}>
+              {carrito.map((item, index) => (
+                <View key={index} style={styles.resumenItem}>
+                  <Text style={styles.resumenNombre}>
+                    {item.cantidad}x {item.producto.nombre}
+                  </Text>
+                  <Text style={styles.resumenPrecio}>
+                    {formatPrecio(item.producto.precioUnitario * item.cantidad)}
+                  </Text>
+                </View>
+              ))}
+              
+              <View style={styles.resumenTotal}>
+                <Text style={styles.resumenTotalLabel}>Total:</Text>
+                <Text style={styles.resumenTotalPrecio}>
+                  {formatPrecio(totalConEnvio)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={styles.modalFooter}>
+          <TouchableOpacity 
+            style={[
+              styles.confirmarButton,
+              loading && styles.confirmarButtonDisabled
+            ]}
+            onPress={handleRealizarPedido}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Text style={styles.confirmarButtonText}>
+                  Confirmar Pedido
+                </Text>
+                <Text style={styles.confirmarButtonSubtext}>
+                  {formatPrecio(totalConEnvio)}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 
   // Si no hay carrito o comercio, mostrar estado vacío
@@ -207,6 +338,12 @@ export default function CartScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Carrito</Text>
           <View style={styles.headerRight} />
         </View>
@@ -262,6 +399,12 @@ export default function CartScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Carrito</Text>
         <View style={styles.headerRight} />
       </View>
@@ -302,27 +445,22 @@ export default function CartScreen() {
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total:</Text>
           <Text style={styles.totalValue}>
-            {formatPrecio(calcularTotal() + (comercio.envio || 0))}
+            {formatPrecio(totalConEnvio)}
           </Text>
         </View>
 
         <TouchableOpacity 
-          style={[
-            styles.checkoutButton,
-            loading && styles.checkoutButtonDisabled
-          ]}
-          onPress={handleRealizarPedido}
-          disabled={loading}
+          style={styles.checkoutButton}
+          onPress={handleConfirmarPedido}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.checkoutButtonText}>
-              Confirmar Pedido - {formatPrecio(calcularTotal() + (comercio.envio || 0))}
-            </Text>
-          )}
+          <Text style={styles.checkoutButtonText}>
+            Confirmar Pedido - {formatPrecio(totalConEnvio)}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal de confirmación */}
+      <ModalConfirmacion />
 
       {/* Overlay de loading */}
       {loading && (
@@ -335,38 +473,35 @@ export default function CartScreen() {
   );
 }
 
-// Los styles permanecen igual...
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
   header: {
-    backgroundColor: '#FF6B6B',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FF6B6B',
   },
   backButton: {
-    padding: 8,
+    padding: 4,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    textAlign: 'center',
-    flex: 1,
   },
   headerRight: {
-    width: 40,
+    width: 32,
   },
   comercioInfo: {
-    padding: 20,
+    padding: 16,
+    backgroundColor: '#F8F9FA',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#E9ECEF',
   },
   comercioNombre: {
     fontSize: 18,
@@ -377,89 +512,23 @@ const styles = StyleSheet.create({
   comercioEslogan: {
     fontSize: 14,
     color: '#666666',
-    fontStyle: 'italic',
   },
   list: {
     flex: 1,
   },
   listContent: {
-    padding: 20,
-  },
-  itemContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
     padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  itemInfo: {
-    marginBottom: 12,
-  },
-  itemNombre: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 4,
-  },
-  itemDescripcion: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 6,
-  },
-  itemPrecio: {
-    fontSize: 14,
-    color: '#FF6B6B',
-    fontWeight: '600',
-  },
-  itemControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 20,
-    padding: 4,
-  },
-  quantityButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  quantityText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginHorizontal: 12,
-    minWidth: 20,
-    textAlign: 'center',
-  },
-  itemTotal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
-  deleteButton: {
-    padding: 8,
   },
   summaryContainer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    padding: 16,
     backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 5,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -481,13 +550,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 8,
-    marginBottom: 20,
-    paddingTop: 12,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: '#E9ECEF',
   },
   totalLabel: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333333',
   },
@@ -499,11 +567,9 @@ const styles = StyleSheet.create({
   checkoutButton: {
     backgroundColor: '#FF6B6B',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
-  },
-  checkoutButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    marginTop: 16,
   },
   checkoutButtonText: {
     color: '#FFFFFF',
@@ -512,20 +578,20 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 40,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333333',
+    color: '#666666',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#999999',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -543,15 +609,160 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
-    zIndex: 1000,
+    justifyContent: 'center',
   },
   loadingText: {
-    color: '#FFFFFF',
-    marginTop: 16,
+    marginTop: 12,
     fontSize: 16,
-    fontWeight: '600',
+    color: '#666666',
+  },
+  // Estilos del modal de confirmación
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 16,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+  },
+  confirmSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 12,
+  },
+  direccionInput: {
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#333333',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  pagoOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  pagoOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#E9ECEF',
+    borderRadius: 8,
+    gap: 8,
+  },
+  pagoOptionSelected: {
+    borderColor: '#FF6B6B',
+    backgroundColor: '#FFF5F5',
+  },
+  pagoOptionText: {
+    fontSize: 16,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  pagoOptionTextSelected: {
+    color: '#FF6B6B',
+  },
+  observacionesInput: {
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#333333',
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  resumenContainer: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+  },
+  resumenItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  resumenNombre: {
+    fontSize: 14,
+    color: '#666666',
+    flex: 1,
+  },
+  resumenPrecio: {
+    fontSize: 14,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  resumenTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+  },
+  resumenTotalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  resumenTotalPrecio: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF6B6B',
+  },
+  confirmarButton: {
+    backgroundColor: '#FF6B6B',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmarButtonDisabled: {
+    backgroundColor: '#FFB8B8',
+  },
+  confirmarButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  confirmarButtonSubtext: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    opacity: 0.9,
   },
 });

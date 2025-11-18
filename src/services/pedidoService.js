@@ -127,27 +127,24 @@ class PedidoService {
   }
 
 async createPedido(pedidoData) {
-  const repartidorIdsToTry = [0, null, 1];
-  
-  let lastError = null;
-
-  for (const repartidorId of repartidorIdsToTry) {
-    const request = {
-      ClienteId: pedidoData.clienteId,
-      RepartidorId: repartidorId,
-      MetodoPagoId: pedidoData.metodoPagoId,
-      Items: pedidoData.items.map(item => ({
-        ProductoId: item.productoId,
-        ComercioId: item.comercioId,
-        Cantidad: item.cantidad,
-        PrecioUnitario: item.precioUnitario
-      })),
-      ComercioRepartidor: true
-    };
-
-    console.log(`🔄 Probando RepartidorId: ${repartidorId}`, JSON.stringify(request, null, 2));
-
     try {
+      console.log('📦 Creando pedido con datos:', JSON.stringify(pedidoData, null, 2));
+
+      // ✅ CORREGIDO: Usar la estructura exacta que espera el backend
+      const request = {
+        ClienteId: pedidoData.clienteId,
+        MetodoPagoId: pedidoData.metodoPagoId,
+        DireccionEnvio: pedidoData.direccionEnvio || "Dirección del cliente", // Campo requerido
+        Items: pedidoData.items.map(item => ({
+          ProductoId: item.productoId,
+          ComercioId: item.comercioId,
+          Cantidad: item.cantidad,
+          // PrecioUnitario se calcula en el backend, no es necesario enviarlo
+        }))
+      };
+
+      console.log('📤 Request al backend:', JSON.stringify(request, null, 2));
+
       const response = await fetch(`${this.baseURL}/api/pedidos`, {
         method: 'POST',
         headers: {
@@ -159,32 +156,31 @@ async createPedido(pedidoData) {
 
       const responseText = await response.text();
       
-      console.log(`📡 Respuesta con RepartidorId ${repartidorId}:`, {
+      console.log('📥 Respuesta del servidor:', {
         status: response.status,
         responseText: responseText
       });
 
-      if (response.ok) {
-        const data = JSON.parse(responseText);
-        console.log(`✅ Éxito con RepartidorId: ${repartidorId}`);
-        return data;
+      if (!response.ok) {
+        let errorMessage = `Error ${response.status}`;
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorData.errors || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
-      if (response.status !== 500) {
-        // Si no es error 500, lanzar error
-        throw new Error(`Error ${response.status}: ${responseText}`);
-      }
-
-      // Si es 500, continuar con el siguiente valor
-      lastError = new Error(`RepartidorId ${repartidorId} falló: ${responseText}`);
+      const data = JSON.parse(responseText);
+      console.log('✅ Pedido creado exitosamente:', data);
+      return data;
 
     } catch (error) {
-      lastError = error;
+      console.error('❌ Error en createPedido:', error);
+      throw error;
     }
   }
-
-  throw lastError || new Error('No se pudo crear el pedido con ningún RepartidorId');
-}
 
   async updateEstadoPedido(id, nuevoEstado) {
     const response = await fetch(`${this.baseURL}/api/pedidos/${id}/estado`, {

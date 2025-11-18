@@ -22,7 +22,6 @@ import { useCart } from '../context/CartContext';
 // Componentes del carrito
 import CartFooter from '../components/carrito/CartFooter';
 import CartButton from '../components/carrito/CartButton';
-import pedidoService from '../services/pedidoService';
 
 export default function MenuScreen() {
   const route = useRoute();
@@ -104,73 +103,6 @@ export default function MenuScreen() {
     }).format(precio);
   };
 
-  const handleRealizarPedido = async () => {
-    if (carrito.length === 0) {
-      Alert.alert('Carrito vacío', 'Agrega productos al carrito antes de realizar el pedido');
-      return;
-    }
-
-    if (!clienteId) {
-      Alert.alert('Error', 'No se pudo identificar al cliente. Por favor, inicia sesión nuevamente.');
-      return;
-    }
-
-    if (!comercio?.idcomercio) {
-      Alert.alert('Error', 'Información del comercio incompleta');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-    const pedidoData = {
-      clienteId: clienteId,
-      comercioRepartidor: comercio.idcomercio,
-      metodoPagoId: 1,
-      items: carrito.map(item => ({
-        productoId: item.producto.idproducto,
-        comercioId: comercio.idcomercio,
-        cantidad: item.cantidad,
-        precioUnitario: item.producto.precioUnitario
-      }))
-    };
-
-
-      console.log('📦 Creando pedido con datos:', pedidoData);
-      
-      const resultado = await pedidoService.createPedido(pedidoData);
-      
-      console.log('✅ Pedido creado exitosamente:', resultado);
-      
-      Alert.alert(
-        '¡Pedido realizado! 🎉',
-        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(calcularTotal())}`,
-        [
-          {
-            text: 'Ver mis pedidos',
-            onPress: () => {
-              clearCart();
-              navigation.navigate('Orders');
-            }
-          },
-          {
-            text: 'Seguir comprando',
-            style: 'cancel',
-            onPress: () => clearCart()
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('❌ Error al crear pedido:', error);
-      Alert.alert(
-        'Error al realizar pedido', 
-        error.message || 'No se pudo completar el pedido. Por favor, intenta nuevamente.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleVerCarrito = () => {
     // Limpiar datos sensibles del comercio
     const safeComercio = {
@@ -190,7 +122,7 @@ export default function MenuScreen() {
     // Configurar el comercio en el contexto
     setComercio(safeComercio);
 
-    // Navegar sin pasar funciones
+    // Navegar al carrito
     navigation.navigate('Cart', {
       clienteId,
     });
@@ -353,13 +285,29 @@ export default function MenuScreen() {
         </View>
       </ScrollView>
 
-      <CartFooter
-        itemCount={totalItems}
-        total={calcularTotal()}
-        onCartPress={handleVerCarrito}
-        onCheckout={handleRealizarPedido}
-        showCartButton={false}
-      />
+      {/* Footer modificado - Solo muestra Ver Carrito */}
+      {carrito.length > 0 && (
+        <View style={styles.footer}>
+          <CartButton 
+            itemCount={totalItems}
+            onPress={handleVerCarrito}
+            size="medium"
+          />
+          
+          <View style={styles.footerInfo}>
+            <Text style={styles.itemCount}>{totalItems} items</Text>
+            <Text style={styles.totalLabel}>Total: {formatPrecio(calcularTotal())}</Text>
+          </View>
+
+          <TouchableOpacity 
+            style={styles.verCarritoButton}
+            onPress={handleVerCarrito}
+          >
+            <Text style={styles.verCarritoButtonText}>Ver Carrito</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
       
       {loading && (
         <View style={styles.loadingOverlay}>
@@ -377,36 +325,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    backgroundColor: '#FF6B6B',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  backButton: {
-    padding: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FF6B6B',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    textAlign: 'center',
-    flex: 1,
   },
   headerRight: {
     width: 40,
-    alignItems: 'flex-end',
   },
   container: {
     flex: 1,
-    paddingBottom: 100,
   },
   comercioInfo: {
-    padding: 20,
+    padding: 16,
+    backgroundColor: '#F8F9FA',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#E9ECEF',
   },
   comercioNombre: {
     fontSize: 24,
@@ -415,56 +356,54 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   comercioEslogan: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666666',
-    fontStyle: 'italic',
     marginBottom: 8,
   },
   productosCount: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#999999',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    margin: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: '#F8F9FA',
-    margin: 20,
-    marginTop: 0,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#E9ECEF',
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
   },
   categoriasSection: {
-    paddingHorizontal: 20,
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333333',
+    marginLeft: 16,
     marginBottom: 12,
   },
   categoriasList: {
-    gap: 8,
+    paddingHorizontal: 16,
   },
   categoriaButton: {
-    backgroundColor: '#F8F9FA',
     paddingHorizontal: 16,
     paddingVertical: 8,
+    backgroundColor: '#F8F9FA',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
   },
   categoriaButtonActive: {
     backgroundColor: '#FF6B6B',
@@ -479,42 +418,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   productosSection: {
-    paddingHorizontal: 20,
+    flex: 1,
+    marginBottom: 16,
   },
   productosList: {
-    gap: 16,
+    paddingHorizontal: 16,
   },
   productoCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
-    padding: 16,
+    borderColor: '#E9ECEF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 2,
+    elevation: 2,
   },
   productoInfo: {
     flex: 1,
     marginRight: 12,
   },
   productoNombre: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333333',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   productoDescripcion: {
     fontSize: 14,
     color: '#666666',
-    lineHeight: 20,
     marginBottom: 8,
+    lineHeight: 18,
   },
   productoPrecio: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#FF6B6B',
     marginBottom: 8,
@@ -522,23 +463,22 @@ const styles = StyleSheet.create({
   productoMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   stockDisponible: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    marginRight: 8,
   },
   stockText: {
     fontSize: 12,
     color: '#22C55E',
-    fontWeight: '500',
+    marginLeft: 4,
   },
   ofertaBadge: {
     backgroundColor: '#FFE4E6',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   ofertaText: {
     fontSize: 10,
@@ -549,67 +489,107 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   productoImagen: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
+    width: 80,
+    height: 80,
+    borderRadius: 8,
   },
   productoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
+    width: 80,
+    height: 80,
+    borderRadius: 8,
     backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
   },
   agregarButton: {
     position: 'absolute',
     bottom: -8,
     right: -8,
-    backgroundColor: '#FF6B6B',
     width: 32,
     height: 32,
     borderRadius: 16,
-    justifyContent: 'center',
+    backgroundColor: '#FF6B6B',
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 3,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 16,
-    marginTop: 20,
+    paddingVertical: 60,
+    paddingHorizontal: 40,
   },
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 8,
+    color: '#666666',
     marginTop: 16,
+    marginBottom: 8,
     textAlign: 'center',
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#999999',
     textAlign: 'center',
     lineHeight: 20,
   },
+  // Nuevos estilos para el footer
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  footerInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  itemCount: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 2,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  verCarritoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  verCarritoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
-    zIndex: 1000,
+    justifyContent: 'center',
   },
   loadingText: {
-    color: '#FFFFFF',
-    marginTop: 16,
+    marginTop: 12,
     fontSize: 16,
-    fontWeight: '600',
+    color: '#666666',
   },
 });
