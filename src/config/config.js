@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 const getBaseUrl = () => {
   // Si estamos en React Native
   if (Platform.OS !== 'web') {
-    return 'http://192.168.1.33:5189'; // Para React Native (Android/iOS)
+    return 'http://192.168.1.45:5189'; // Para React Native (Android/iOS)
     //return 'http://192.168.1.43:5189'; // Viya
   }
   

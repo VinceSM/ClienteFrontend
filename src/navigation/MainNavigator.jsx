@@ -2,7 +2,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Importar todas las pantallas
 import HomeScreen from '../screens/HomeScreen';
@@ -26,17 +27,30 @@ const Stack = createNativeStackNavigator();
 // Stack Navigator para el perfil y sus secciones
 function ProfileStackNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTintColor: '#FF4D4D',
+        headerTitleStyle: {
+          fontWeight: '600',
+          fontSize: 17,
+        },
+        headerStyle: {
+          backgroundColor: '#FFFFFF',
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+        gestureEnabled: true,
+        animation: 'slide_from_right',
+        cardStyle: { backgroundColor: '#FFFFFF' },
+      }}
+    >
       <Stack.Screen 
         name="ProfileMain" 
         component={ProfileScreen}
         options={{ 
           title: 'Mi Perfil',
-          headerShown: true,
-          headerTintColor: '#FF4D4D',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitleAlign: 'center',
         }}
       />
       <Stack.Screen 
@@ -44,10 +58,7 @@ function ProfileStackNavigator() {
         component={MisPedidos}
         options={{ 
           title: 'Mis Pedidos',
-          headerTintColor: '#FF4D4D',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitleAlign: 'center',
         }}
       />
       <Stack.Screen 
@@ -55,10 +66,7 @@ function ProfileStackNavigator() {
         component={MetodosPago}
         options={{ 
           title: 'Métodos de Pago',
-          headerTintColor: '#FF4D4D',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitleAlign: 'center',
         }}
       />
       <Stack.Screen 
@@ -66,10 +74,7 @@ function ProfileStackNavigator() {
         component={Notificaciones}
         options={{ 
           title: 'Notificaciones',
-          headerTintColor: '#FF4D4D',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitleAlign: 'center',
         }}
       />
       <Stack.Screen 
@@ -77,31 +82,47 @@ function ProfileStackNavigator() {
         component={Ayuda}
         options={{ 
           title: 'Centro de Ayuda',
-          headerTintColor: '#FF4D4D',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitleAlign: 'center',
         }}
       />
     </Stack.Navigator>
   );
 }
 
-// Tab Navigator actualizado para usar el ProfileStack
+// Componente personalizado para los íconos del tab
+const TabIcon = ({ focused, emoji, label }) => (
+  <View style={styles.tabIconContainer}>
+    <Text style={[
+      styles.tabIcon,
+      focused && styles.tabIconFocused
+    ]}>
+      {emoji}
+    </Text>
+    <Text style={[
+      styles.tabLabel,
+      focused && styles.tabLabelFocused
+    ]}>
+      {label}
+    </Text>
+  </View>
+);
+
+// Tab Navigator con estilo Instagram
 function HomeTabNavigator() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: '#FF4D4D',
-        tabBarInactiveTintColor: '#666666',
-        tabBarStyle: {
-          borderTopWidth: 1,
-          borderTopColor: '#F0F0F0',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
+        tabBarInactiveTintColor: '#8E8E93',
+        tabBarLabelStyle: styles.tabBarLabel,
         headerShown: false,
+        tabBarStyle: {
+          ...styles.tabBar,
+          paddingBottom: insets.bottom === 0 ? 6 : insets.bottom,
+          height: 60 + (insets.bottom === 0 ? 0 : insets.bottom),
+        },
       }}
     >
       <Tab.Screen 
@@ -109,38 +130,41 @@ function HomeTabNavigator() {
         component={HomeScreen}
         options={{
           title: 'Inicio',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>🏠</Text>
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} emoji="🏠" />
           ),
         }}
       />
+      
       <Tab.Screen 
         name="Search" 
         component={SearchScreen}
         options={{
           title: 'Buscar',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>🔍</Text>
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} emoji="🔍" />
           ),
         }}
       />
+
       <Tab.Screen 
         name="Orders" 
         component={OrdersScreen}
         options={{
           title: 'Pedidos',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>📦</Text>
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} emoji="📦" />
           ),
         }}
       />
+
       <Tab.Screen 
         name="Profile" 
         component={ProfileStackNavigator}
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>👤</Text>
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} emoji="👤" />
           ),
         }}
       />
@@ -156,11 +180,23 @@ export default function MainNavigator() {
         headerTintColor: '#FF4D4D',
         headerTitleStyle: {
           fontWeight: 'bold',
+          fontSize: 18,
         },
-        // Agregar estas opciones para mejorar los gestos
+        headerStyle: {
+          backgroundColor: '#FFFFFF',
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0.5,
+          borderBottomColor: '#E5E5EA',
+        },
         gestureEnabled: true,
         gestureDirection: 'horizontal',
         animation: 'slide_from_right',
+        animationDuration: 300,
+        cardStyle: { backgroundColor: '#FFFFFF' },
+        headerBackTitleVisible: false,
+        headerLeftContainerStyle: { paddingLeft: 8 },
+        headerRightContainerStyle: { paddingRight: 16 },
       }}
     >
       <Stack.Screen 
@@ -168,7 +204,7 @@ export default function MainNavigator() {
         component={HomeTabNavigator}
         options={{ 
           headerShown: false,
-          gestureEnabled: false, // Deshabilitar gestos en la pantalla principal
+          gestureEnabled: false,
         }}
       />
       <Stack.Screen 
@@ -176,7 +212,7 @@ export default function MainNavigator() {
         component={RestaurantScreen}
         options={{ 
           title: 'Comercio',
-          gestureEnabled: true,
+          headerTransparent: false,
         }}
       />
       <Stack.Screen 
@@ -184,7 +220,9 @@ export default function MainNavigator() {
         component={MenuScreen}
         options={{ 
           title: 'Menú',
-          gestureEnabled: true,
+          headerStyle: {
+            backgroundColor: '#FFFFFF',
+          },
         }}
       />
       <Stack.Screen 
@@ -192,7 +230,7 @@ export default function MainNavigator() {
         component={CartScreen}
         options={{ 
           title: 'Carrito',
-          gestureEnabled: true,
+          presentation: 'modal',
         }}
       />
       <Stack.Screen 
@@ -200,9 +238,57 @@ export default function MainNavigator() {
         component={CheckoutScreen}
         options={{ 
           title: 'Finalizar Pedido',
-          gestureEnabled: true,
+          gestureEnabled: false,
         }}
       />
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E5EA',
+    height: 60,
+    paddingBottom: 8,
+    paddingTop: 8,
+    backgroundColor: '#FFFFFF',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  tabBarLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  tabIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+  },
+  tabIcon: {
+    fontSize: 24,
+    color: '#8E8E93',
+    marginBottom: 2,
+  },
+  tabIconFocused: {
+    color: '#FF4D4D',
+    transform: [{ scale: 1.1 }],
+  },
+  tabLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  tabLabelFocused: {
+    color: '#FF4D4D',
+    fontWeight: '600',
+  },
+});
