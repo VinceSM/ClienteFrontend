@@ -122,7 +122,7 @@ const ConfirmarPedidoModal = memo(({
               style={styles.direccionInput}
               value={direccion}
               onChangeText={handleDireccionChange}
-              placeholder="Ej: Calle 99 entre 99 y 99 N1099"
+              placeholder="Ej: Calle 99 entre 99 y 99 N 1099, Piso 9 Numero 9"
               placeholderTextColor="#999"
               multiline
               numberOfLines={3}

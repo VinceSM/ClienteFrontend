@@ -139,6 +139,7 @@ class PedidoService {
         // SubtotalPedido: pedidoData.subtotalPedido,
         // CostoEnvio: pedidoData.costoEnvio, 
         // TotalPedido: pedidoData.totalPedido,
+        ComercioRepartidor: pedidoData.comercioRepartidor,
         Items: pedidoData.items.map(item => ({
           ProductoId: item.productoId,
           ComercioId: item.comercioId,

@@ -113,7 +113,7 @@ export default function CartScreen() {
     try {
       const pedidoData = {
         clienteId: clienteId,
-        comercioRepartidor: false,
+        comercioRepartidor: comercio?.deliveryPropio || false,
         metodoPagoId: metodoPagoSeleccionado.idmetodo,
         direccionEnvio: direccion.trim(),
         observaciones: observaciones || '',
@@ -130,6 +130,7 @@ export default function CartScreen() {
       };
 
       console.log('📦 Enviando pedido al backend:', pedidoData);
+      console.log('🏪 Comercio deliveryPropio:', comercio?.deliveryPropio);
       
       const resultado = await pedidoService.createPedido(pedidoData);
       
