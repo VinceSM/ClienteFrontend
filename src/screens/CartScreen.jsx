@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,29 +8,25 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  TextInput,
-  ScrollView,
-  Modal
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from 'react-native-vector-icons/Ionicons'; 
 
 // Importar hooks y servicios
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../context/CartContext';
 import pedidoService from '../services/pedidoService';
-import { metodoPagoService } from '../services/metodoPagoService';
-import { estadoPedidoService } from '../services/estadoPedidoService';
+import metodoPagoService from '../services/metodoPagoService';
 
 // Componentes del carrito
 import CartItem from '../components/carrito/CartItem';
+import ConfirmarPedidoModal from '../components/carrito/ConfirmarPedidoModal';
 
 export default function CartScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { user } = useAuth();
   
-  // Usar el contexto del carrito
   const { 
     items: carrito, 
     comercio, 
@@ -40,40 +36,27 @@ export default function CartScreen() {
     getTotalPrice
   } = useCart();
 
-  const { clienteId: clienteIdFromParams } = route.params || {};
-  const clienteId = clienteIdFromParams || user?.id;
+  const clienteId = user?.id;
 
   const [loading, setLoading] = useState(false);
   const [loadingMetodos, setLoadingMetodos] = useState(false);
   const [showConfirmacion, setShowConfirmacion] = useState(false);
-  const [direccion, setDireccion] = useState('');
   const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState(null);
   const [metodosPago, setMetodosPago] = useState([]);
-  const [estadoPedidoPendiente, setEstadoPedidoPendiente] = useState(null);
-  const [observaciones, setObservaciones] = useState('');
+  const [direccion, setDireccion] = useState('');
 
-  // Cargar métodos de pago y estado por defecto
+  // Cargar métodos de pago
   useEffect(() => {
     const cargarDatos = async () => {
       try {
         setLoadingMetodos(true);
-        
-        // Cargar métodos de pago activos
         const metodosData = await metodoPagoService.getAllMetodosPago();
         setMetodosPago(metodosData);
-        
-        // Seleccionar el primer método por defecto
         if (metodosData.length > 0) {
           setMetodoPagoSeleccionado(metodosData[0]);
         }
-        
-        // Cargar estado "PENDIENTE" por defecto
-        const estadoPendiente = await estadoPedidoService.getEstadoByTipo('PENDIENTE');
-        setEstadoPedidoPendiente(estadoPendiente);
-        
       } catch (error) {
-        console.error('Error cargando datos:', error);
-        // Fallback a valores por defecto si hay error
+        console.error('Error cargando métodos de pago:', error);
         setMetodosPago([
           { idmetodo: 1, metodo: 'EFECTIVO', descripcion: 'Pago en efectivo' },
           { idmetodo: 2, metodo: 'TARJETA', descripcion: 'Pago con tarjeta' }
@@ -83,8 +66,19 @@ export default function CartScreen() {
         setLoadingMetodos(false);
       }
     };
-
     cargarDatos();
+  }, []);
+
+  const handleMetodoPagoChange = useCallback((metodo) => {
+    setMetodoPagoSeleccionado(metodo);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setShowConfirmacion(false);
+  }, []);
+
+  const handleAbrirConfirmacion = useCallback(() => {
+    setShowConfirmacion(true);
   }, []);
 
   // Función para formatear precio
@@ -96,12 +90,81 @@ export default function CartScreen() {
     }).format(precio);
   };
 
-  // Calcular total usando la función del contexto
-  const calcularTotal = () => {
-    return getTotalPrice();
+  const calcularTotal = () => getTotalPrice();
+  const totalConEnvio = calcularTotal() + (comercio?.envio || 0);
+
+  const calcularSubtotal = () => {
+    return carrito.reduce((total, item) => {
+      return total + (item.producto.precioUnitario * item.cantidad);
+    }, 0);
   };
 
-  const totalConEnvio = calcularTotal() + (comercio?.envio || 0);
+  const subtotal = calcularSubtotal();
+  const costoEnvio = comercio?.envio || 0;
+
+  const handleConfirmarPedido = async (direccion, observaciones) => {
+    if (!direccion.trim()) {
+      Alert.alert('Dirección requerida', 'Por favor ingresa una dirección de entrega.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const pedidoData = {
+        clienteId: clienteId,
+        comercioRepartidor: false,
+        metodoPagoId: metodoPagoSeleccionado.idmetodo,
+        direccionEnvio: direccion.trim(),
+        observaciones: observaciones || '',
+        subtotalPedido: subtotal,
+        costoEnvio: costoEnvio,
+        totalPedido: totalConEnvio,
+        items: carrito.map(item => ({
+          productoId: item.producto.idproducto,
+          comercioId: comercio.idcomercio,
+          cantidad: item.cantidad,
+          precioUnitario: item.producto.precioUnitario,
+          total: item.producto.precioUnitario * item.cantidad
+        }))
+      };
+
+      console.log('📦 Enviando pedido al backend:', pedidoData);
+      
+      const resultado = await pedidoService.createPedido(pedidoData);
+      
+      console.log('✅ Respuesta del backend:', resultado);
+      
+      setShowConfirmacion(false);
+      
+      Alert.alert(
+        '¡Pedido realizado! 🎉',
+        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(totalConEnvio)}`,
+        [
+          {
+            text: 'Ver mis pedidos',
+            onPress: () => {
+              clearCart();
+              navigation.navigate('Orders');
+            }
+          },
+          {
+            text: 'Seguir comprando',
+            style: 'cancel',
+            onPress: () => {
+              clearCart();
+              navigation.goBack();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error al crear pedido:', error);
+      Alert.alert('Error', error.message || 'No se pudo completar el pedido.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Funciones para modificar el carrito usando el contexto
   const aumentarCantidad = (productoId) => {
@@ -140,94 +203,6 @@ export default function CartScreen() {
     );
   };
 
-  const handleAbrirConfirmacion = () => {
-    setShowConfirmacion(true);
-  };
-
-  const handleRealizarPedido = async () => {
-    // Validar que la dirección no esté vacía
-    if (!direccion.trim()) {
-      Alert.alert('Dirección requerida', 'Por favor ingresa una dirección de entrega para continuar con tu pedido.');
-      return;
-    }
-
-    if (carrito.length === 0) {
-      Alert.alert('Carrito vacío', 'Agrega productos al carrito antes de realizar el pedido');
-      return;
-    }
-
-    if (!clienteId) {
-      Alert.alert('Error', 'No se pudo identificar al cliente. Por favor, inicia sesión nuevamente.');
-      return;
-    }
-
-    if (!comercio?.idcomercio) {
-      Alert.alert('Error', 'Información del comercio incompleta');
-      return;
-    }
-
-    if (!metodoPagoSeleccionado) {
-      Alert.alert('Error', 'Por favor selecciona un método de pago');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const pedidoData = {
-        clienteId: clienteId,
-        comercioRepartidor: comercio.idcomercio,
-        metodoPagoId: metodoPagoSeleccionado.idmetodo,
-        direccionEntrega: direccion.trim(),
-        observaciones: observaciones.trim(),
-        items: carrito.map(item => ({
-          productoId: item.producto.idproducto,
-          comercioId: comercio.idcomercio,
-          cantidad: item.cantidad,
-          precioUnitario: item.producto.precioUnitario
-        }))
-      };
-
-      console.log('📦 Creando pedido desde CartScreen:', pedidoData);
-      
-      const resultado = await pedidoService.createPedido(pedidoData);
-      
-      console.log('✅ Pedido creado exitosamente:', resultado);
-      
-      setShowConfirmacion(false);
-      
-      Alert.alert(
-        '¡Pedido realizado! 🎉',
-        `Tu pedido #${resultado.codigo} ha sido creado exitosamente.\nTotal: ${formatPrecio(totalConEnvio)}\nEstado: ${resultado.estadoPedido?.tipo || 'PENDIENTE'}`,
-        [
-          {
-            text: 'Ver mis pedidos',
-            onPress: () => {
-              clearCart();
-              navigation.navigate('Orders');
-            }
-          },
-          {
-            text: 'Seguir comprando',
-            style: 'cancel',
-            onPress: () => {
-              clearCart();
-              navigation.goBack();
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('❌ Error al crear pedido:', error);
-      Alert.alert(
-        'Error al realizar pedido', 
-        error.message || 'No se pudo completar el pedido. Por favor, intenta nuevamente.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const renderItem = ({ item }) => (
     <CartItem 
       item={item}
@@ -238,194 +213,11 @@ export default function CartScreen() {
     />
   );
 
-  // Función para obtener icono según método de pago
-  const getMetodoPagoIcon = (metodo) => {
-    switch (metodo?.toUpperCase()) {
-      case 'EFECTIVO':
-        return 'cash';
-      case 'TARJETA':
-        return 'card';
-      case 'TRANSFERENCIA':
-        return 'business';
-      case 'MERCADO PAGO':
-        return 'phone-portrait';
-      default:
-        return 'wallet';
-    }
-  };
-
-  // Modal de confirmación
-  const ModalConfirmacion = () => (
-    <Modal
-      visible={showConfirmacion}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Realizar Pedido</Text>
-          <TouchableOpacity 
-            onPress={() => setShowConfirmacion(false)}
-            style={styles.closeButton}
-          >
-            <Ionicons name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.modalContent}>
-          {/* Dirección de entrega */}
-          <View style={styles.confirmSection}>
-            <Text style={styles.sectionTitle}>📍 Dirección de entrega *</Text>
-            <TextInput
-              style={styles.direccionInput}
-              value={direccion}
-              onChangeText={setDireccion}
-              placeholder="Ej: Calle 99 entre 99 y 99 N1099"
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={3}
-            />
-            {!direccion.trim() && (
-              <Text style={styles.errorText}>
-                La dirección de entrega es obligatoria
-              </Text>
-            )}
-          </View>
-
-          {/* Método de pago */}
-          <View style={styles.confirmSection}>
-            <Text style={styles.sectionTitle}>💳 Método de pago</Text>
-            {loadingMetodos ? (
-              <ActivityIndicator size="small" color="#FF6B6B" />
-            ) : (
-              <View style={styles.pagoOptions}>
-                {metodosPago.map((metodo) => (
-                  <TouchableOpacity
-                    key={metodo.idmetodo}
-                    style={[
-                      styles.pagoOption,
-                      metodoPagoSeleccionado?.idmetodo === metodo.idmetodo && styles.pagoOptionSelected
-                    ]}
-                    onPress={() => setMetodoPagoSeleccionado(metodo)}
-                  >
-                    <Ionicons 
-                      name={getMetodoPagoIcon(metodo.metodo)} 
-                      size={24} 
-                      color={metodoPagoSeleccionado?.idmetodo === metodo.idmetodo ? '#FF6B6B' : '#666'} 
-                    />
-                    <View style={styles.pagoOptionInfo}>
-                      <Text style={[
-                        styles.pagoOptionText,
-                        metodoPagoSeleccionado?.idmetodo === metodo.idmetodo && styles.pagoOptionTextSelected
-                      ]}>
-                        {metodo.metodo}
-                      </Text>
-                      {metodo.descripcion && (
-                        <Text style={styles.pagoOptionDesc}>
-                          {metodo.descripcion}
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* Observaciones */}
-          <View style={styles.confirmSection}>
-            <Text style={styles.sectionTitle}>📝 Observaciones (opcional)</Text>
-            <TextInput
-              style={styles.observacionesInput}
-              value={observaciones}
-              onChangeText={setObservaciones}
-              placeholder="Instrucciones especiales para la entrega..."
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
-          {/* Resumen del pedido */}
-          <View style={styles.confirmSection}>
-            <Text style={styles.sectionTitle}>📦 Resumen del pedido</Text>
-            <View style={styles.resumenContainer}>
-              {carrito.map((item, index) => (
-                <View key={index} style={styles.resumenItem}>
-                  <Text style={styles.resumenNombre}>
-                    {item.cantidad}x {item.producto.nombre}
-                  </Text>
-                  <Text style={styles.resumenPrecio}>
-                    {formatPrecio(item.producto.precioUnitario * item.cantidad)}
-                  </Text>
-                </View>
-              ))}
-              
-              {comercio?.envio > 0 && (
-                <View style={styles.resumenItem}>
-                  <Text style={styles.resumenNombre}>Costo de envío</Text>
-                  <Text style={styles.resumenPrecio}>
-                    {formatPrecio(comercio.envio)}
-                  </Text>
-                </View>
-              )}
-              
-              <View style={styles.resumenTotal}>
-                <Text style={styles.resumenTotalLabel}>Total:</Text>
-                <Text style={styles.resumenTotalPrecio}>
-                  {formatPrecio(totalConEnvio)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Información del estado */}
-          <View style={styles.infoSection}>
-            <Ionicons name="information-circle" size={20} color="#007AFF" />
-            <Text style={styles.infoText}>
-              Tu pedido será creado con estado "PENDIENTE". El comercio te notificará cuando sea confirmado.
-            </Text>
-          </View>
-        </ScrollView>
-
-        <View style={styles.modalFooter}>
-          <TouchableOpacity 
-            style={[
-              styles.confirmarButton,
-              (!direccion.trim() || loading || !metodoPagoSeleccionado) && styles.confirmarButtonDisabled
-            ]}
-            onPress={handleRealizarPedido}
-            disabled={!direccion.trim() || loading || !metodoPagoSeleccionado}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                <Text style={styles.confirmarButtonText}>
-                  Confirmar Pedido
-                </Text>
-                <Text style={styles.confirmarButtonSubtext}>
-                  {formatPrecio(totalConEnvio)}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </Modal>
-  );
-
   // Si no hay carrito o comercio, mostrar estado vacío
   if (!carrito || !comercio) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
           <Text style={styles.headerTitle}>Carrito</Text>
           <View style={styles.headerRight} />
         </View>
@@ -450,12 +242,6 @@ export default function CartScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
           <Text style={styles.headerTitle}>Carrito</Text>
           <View style={styles.headerRight} />
         </View>
@@ -481,12 +267,6 @@ export default function CartScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Carrito</Text>
         <View style={styles.headerRight} />
       </View>
@@ -541,8 +321,21 @@ export default function CartScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Modal de confirmación */}
-      <ModalConfirmacion />
+      {/* Modal de confirmación usando el componente separado */}
+      <ConfirmarPedidoModal
+        visible={showConfirmacion}
+        onClose={handleCloseModal}
+        onConfirm={handleConfirmarPedido}
+        loading={loading}
+        carrito={carrito}
+        comercio={comercio}
+        metodosPago={metodosPago}
+        metodoPagoSeleccionado={metodoPagoSeleccionado}
+        onMetodoPagoChange={handleMetodoPagoChange}
+        loadingMetodos={loadingMetodos}
+        formatPrecio={formatPrecio}
+        totalConEnvio={totalConEnvio}
+      />
 
       {/* Overlay de loading */}
       {loading && (
@@ -555,6 +348,7 @@ export default function CartScreen() {
   );
 }
 
+// Estilos (mantener los mismos que tenías)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -567,9 +361,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FF6B6B',
-  },
-  backButton: {
-    padding: 4,
   },
   headerTitle: {
     fontSize: 18,
@@ -699,152 +490,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666666',
-  },
-  // Estilos del modal de confirmación
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalContent: {
-    flex: 1,
-    padding: 16,
-  },
-  modalFooter: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E9ECEF',
-  },
-  confirmSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 12,
-  },
-  direccionInput: {
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333333',
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  pagoOptions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  pagoOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#E9ECEF',
-    borderRadius: 8,
-    gap: 8,
-  },
-  pagoOptionSelected: {
-    borderColor: '#FF6B6B',
-    backgroundColor: '#FFF5F5',
-  },
-  pagoOptionText: {
-    fontSize: 16,
-    color: '#666666',
-    fontWeight: '500',
-  },
-  pagoOptionTextSelected: {
-    color: '#FF6B6B',
-  },
-  observacionesInput: {
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333333',
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  resumenContainer: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    padding: 12,
-  },
-  resumenItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  resumenNombre: {
-    fontSize: 14,
-    color: '#666666',
-    flex: 1,
-  },
-  resumenPrecio: {
-    fontSize: 14,
-    color: '#333333',
-    fontWeight: '500',
-  },
-  resumenTotal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E9ECEF',
-  },
-  resumenTotalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
-  resumenTotalPrecio: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FF6B6B',
-  },
-  confirmarButton: {
-    backgroundColor: '#FF6B6B',
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  confirmarButtonDisabled: {
-    backgroundColor: '#FFB8B8',
-  },
-  confirmarButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  confirmarButtonSubtext: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    opacity: 0.9,
   },
 });

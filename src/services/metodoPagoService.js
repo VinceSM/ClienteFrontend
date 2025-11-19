@@ -108,4 +108,4 @@ class MetodoPagoService {
   }
 }
 
-export default new MetodoPagoService();
+export default new MetodoPagoService(); 

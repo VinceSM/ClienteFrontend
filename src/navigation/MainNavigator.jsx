@@ -157,32 +157,51 @@ export default function MainNavigator() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        // Agregar estas opciones para mejorar los gestos
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+        animation: 'slide_from_right',
       }}
     >
       <Stack.Screen 
         name="HomeTabs" 
         component={HomeTabNavigator}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false, // Deshabilitar gestos en la pantalla principal
+        }}
       />
       <Stack.Screen 
         name="Restaurant" 
         component={RestaurantScreen}
-        options={{ title: 'Comercio' }}
+        options={{ 
+          title: 'Comercio',
+          gestureEnabled: true,
+        }}
       />
       <Stack.Screen 
         name="Menu" 
         component={MenuScreen}
-        options={{ title: 'Menú' }}
+        options={{ 
+          title: 'Menú',
+          gestureEnabled: true,
+        }}
       />
       <Stack.Screen 
         name="Cart" 
         component={CartScreen}
-        options={{ title: 'Carrito' }}
+        options={{ 
+          title: 'Carrito',
+          gestureEnabled: true,
+        }}
       />
       <Stack.Screen 
         name="Checkout" 
         component={CheckoutScreen}
-        options={{ title: 'Finalizar Pedido' }}
+        options={{ 
+          title: 'Finalizar Pedido',
+          gestureEnabled: true,
+        }}
       />
     </Stack.Navigator>
   );

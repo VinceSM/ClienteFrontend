@@ -126,24 +126,29 @@ class PedidoService {
     return data;
   }
 
-async createPedido(pedidoData) {
+  async createPedido(pedidoData) {
     try {
       console.log('📦 Creando pedido con datos:', JSON.stringify(pedidoData, null, 2));
 
-      // ✅ CORREGIDO: Usar la estructura exacta que espera el backend
+      // ✅ SOLUCIÓN: Enviar solo los campos que el backend realmente usa
       const request = {
         ClienteId: pedidoData.clienteId,
         MetodoPagoId: pedidoData.metodoPagoId,
-        DireccionEnvio: pedidoData.direccionEnvio || "Dirección del cliente", // Campo requerido
+        DireccionEnvio: pedidoData.direccionEnvio || pedidoData.direccionEntrega,
+        // ❌ ELIMINAR: El backend ignora estos campos y los recalcula
+        // SubtotalPedido: pedidoData.subtotalPedido,
+        // CostoEnvio: pedidoData.costoEnvio, 
+        // TotalPedido: pedidoData.totalPedido,
         Items: pedidoData.items.map(item => ({
           ProductoId: item.productoId,
           ComercioId: item.comercioId,
           Cantidad: item.cantidad,
-          // PrecioUnitario se calcula en el backend, no es necesario enviarlo
+          PrecioUnitario: item.precioUnitario,
+          Total: item.total
         }))
       };
 
-      console.log('📤 Request al backend:', JSON.stringify(request, null, 2));
+      console.log('📤 Request CORREGIDO al backend:', JSON.stringify(request, null, 2));
 
       const response = await fetch(`${this.baseURL}/api/pedidos`, {
         method: 'POST',
